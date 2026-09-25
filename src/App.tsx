@@ -39,6 +39,13 @@ export const App: React.FC = () => {
       if (e.code === 'F1' || (e.code === 'KeyG' && !e.ctrlKey)) {
         setGodMode((prev) => !prev);
       }
+      if (e.code === 'KeyF') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
       if (e.code === 'Space' && (gameState === 'START' || gameState === 'GAMEOVER')) {
         startGame(gameMode);
       }

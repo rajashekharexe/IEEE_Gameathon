@@ -32,10 +32,11 @@ export interface InGameWaypoint {
 }
 
 export class VFXSystem {
-  private maxParticles = 600;
+  private maxParticles = 300;
   private sparks: SparkParticle[] = [];
   public floatingTexts: FloatingTextItem[] = [];
   private textCounter = 0;
+  private tempVec = new THREE.Vector3();
 
   // Three.js Point Cloud
   private pointsGeo: THREE.BufferGeometry;
@@ -75,11 +76,12 @@ export class VFXSystem {
   // Emit 3D Sparks with physics & gravity
   public emitSparks(pos: THREE.Vector3, count: number, hexColor: number, speed = 8, isUpward = false) {
     const col = new THREE.Color(hexColor);
-    for (let i = 0; i < count; i++) {
-      if (this.sparks.length >= this.maxParticles) {
-        this.sparks.shift();
-      }
+    const overflow = (this.sparks.length + count) - this.maxParticles;
+    if (overflow > 0) {
+      this.sparks.splice(0, overflow);
+    }
 
+    for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const elev = isUpward ? Math.random() * Math.PI * 0.5 : (Math.random() - 0.5) * Math.PI;
       const spd = (Math.random() * 0.7 + 0.3) * speed;
@@ -245,7 +247,7 @@ export class VFXSystem {
       ctx.restore();
     }
 
-    const tempVec = new THREE.Vector3();
+    const tempVec = this.tempVec;
 
     // 2. Render In-Game Holographic Waypoints
     if (waypoints && waypoints.length > 0) {

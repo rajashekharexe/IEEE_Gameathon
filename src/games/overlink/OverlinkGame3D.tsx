@@ -152,10 +152,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     const s = stateRef.current;
 
-    // 1. SCENE SETUP (Dark Futuristic Robot-Revolt City Atmosphere)
+    // 1. SCENE SETUP (Luminous Futuristic Cyber-City Atmosphere)
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060913);
-    scene.fog = new THREE.FogExp2(0x070c18, 0.012);
+    scene.background = new THREE.Color(0x0f172a);
+    scene.fog = new THREE.FogExp2(0x0f172a, 0.005);
 
     // 2. CAMERA, SCREEN SHAKE & VFX
     const camera = new THREE.PerspectiveCamera(
@@ -168,32 +168,37 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     const screenShake = new ScreenShake();
     const vfx = new VFXSystem(scene);
 
-    // 3. RENDERER
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // 3. HIGH-PERFORMANCE RENDERER (Locked 60 FPS!)
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+      precision: 'mediump',
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(renderer.domElement);
 
-    // 4. ATMOSPHERIC LIGHTING (Cyberpunk Night Warzone with Neon Glows)
-    const ambientLight = new THREE.AmbientLight(0x0f172a, 1.4);
+    // 4. ATMOSPHERIC LIGHTING (Bright, Crisp, Daylight / Twilight Luminous Illumination)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.6);
-    dirLight.position.set(30, 50, 20);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    dirLight.position.set(35, 55, 25);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.near = 1.0;
     dirLight.shadow.camera.far = 150;
     dirLight.shadow.camera.left = -60;
     dirLight.shadow.camera.right = 60;
     dirLight.shadow.camera.top = 60;
     dirLight.shadow.camera.bottom = -60;
+    dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
 
-    const backLight = new THREE.DirectionalLight(0xf43f5e, 0.9);
+    const backLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
     backLight.position.set(-30, 40, -30);
     scene.add(backLight);
 
@@ -329,14 +334,30 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     const mousePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const mouseWorldPos = new THREE.Vector3();
 
-    // 14. GAME STATE & TIMERS
+    // 14. GAME STATE & TIMERS + HIGH-FPS PERFORMANCE CACHES
     const clock = new THREE.Clock();
     let animId: number;
     let shootCooldown = 0;
     let invulnTimer = 0;
     let cinematicTimer = 0;
     let hackingTimer = 0;
+    let hudThrottleTimer = 0;
+    let prevHackingState = 'NONE';
+    let prevBanner: MissionBannerData | null = null;
     let activeHackingTarget: EnforcerRobotEntity | ActiveScout | null = null;
+
+    // Pre-allocated static vectors (0 GC heap allocations during 60fps render loop)
+    const _cinematicCamPos = new THREE.Vector3(0, 14, 18);
+    const _cinematicLook = new THREE.Vector3(0, 10, -32);
+    const _camOffset = new THREE.Vector3(0, 7.8, 9.2);
+    const _lookOffset = new THREE.Vector3(0, 1.2, -2.5);
+    const _targetCamPos = new THREE.Vector3();
+    const _targetLookPos = new THREE.Vector3();
+    const _mouseNdc = new THREE.Vector2();
+    const _followOffset = new THREE.Vector3(-4, 0, 2);
+    const _followGoal = new THREE.Vector3();
+    const _sprintOffset = new THREE.Vector3(0, 0.2, 0);
+    const _tempVec3 = new THREE.Vector3();
 
     let bannerTimeout: number | undefined;
     const triggerBanner = (type: 'SUCCESS' | 'ALERT' | 'INFO', title: string, subtitle: string, duration = 3500) => {
@@ -426,8 +447,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       if (s.cinematicIntroActive) {
         cinematicTimer -= delta;
         // Cinematic camera sweep: slowly pull back and tilt up to show the colossal 16m Core-X
-        camera.position.lerp(new THREE.Vector3(0, 14, 18), 0.04);
-        camera.lookAt(0, 10, -32);
+        camera.position.lerp(_cinematicCamPos, 0.04);
+        camera.lookAt(_cinematicLook);
 
         boss.animateCrawl(time, false);
         boss.coreLight.intensity = 8.0 + Math.sin(time * 12) * 4.0;
@@ -462,14 +483,13 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       }
 
-      // D. MOUSE AIM RAYCASTING
+      // D. MOUSE AIM RAYCASTING (Zero allocation)
       const mouse = input.state.mouse;
-      const ndcX = (mouse.x / window.innerWidth) * 2 - 1;
-      const ndcY = -(mouse.y / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+      _mouseNdc.set((mouse.x / window.innerWidth) * 2 - 1, -(mouse.y / window.innerHeight) * 2 + 1);
+      raycaster.setFromCamera(_mouseNdc, camera);
       let hitPos = raycaster.ray.intersectPlane(mousePlane, mouseWorldPos);
       if (!hitPos) {
-        hitPos = raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, 25);
+        hitPos = mouseWorldPos.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, 25);
       }
 
       if (hitPos && !s.cinematicIntroActive) {
@@ -488,7 +508,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       if (isSprinting) {
         s.energy = Math.max(0, s.energy - 15 * delta);
         // Sprint particles behind boots
-        vfx.emitSparks(activeObj.position.clone().add(new THREE.Vector3(0, 0.2, 0)), 1, 0x00f0ff, 3);
+        _tempVec3.copy(activeObj.position).add(_sprintOffset);
+        vfx.emitSparks(_tempVec3, 1, 0x00f0ff, 3);
       }
 
       const currentSpeed =
@@ -509,14 +530,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         const normFwd = inputFwd / length;
         const normRight = inputRight / length;
 
-        // Camera-aligned movement vectors
-        const fwdX = Math.sin(camera.rotation.y + Math.PI);
-        const fwdZ = Math.cos(camera.rotation.y + Math.PI);
-        const rightX = Math.cos(camera.rotation.y);
-        const rightZ = -Math.sin(camera.rotation.y);
-
-        activeObj.position.x += (fwdX * normFwd + rightX * normRight) * currentSpeed;
-        activeObj.position.z += (fwdZ * normFwd + rightZ * normRight) * currentSpeed;
+        // Direct, rock-solid tactical movement (W = Up/North, S = Down/South, A = Left, D = Right)
+        // Eliminates camera yaw drift and wobble!
+        activeObj.position.x += normRight * currentSpeed;
+        activeObj.position.z -= normFwd * currentSpeed;
 
         // Arena boundary clamp (-75m to 75m)
         activeObj.position.x = Math.max(-72, Math.min(72, activeObj.position.x));
@@ -530,11 +547,24 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         titan.animateWalk(time, isMoving);
       }
 
-      // F. THIRD-PERSON COMBAT CAMERA (Smooth Chase Camera)
+      // F. HIGH-PRECISION COMBAT CHASE CAMERA (Smooth Centered Follow & Aim Lookahead)
       if (!s.cinematicIntroActive) {
-        const targetCamPos = activeObj.position.clone().add(new THREE.Vector3(-4.5, 5.2, 7.5));
-        camera.position.lerp(targetCamPos, 0.08);
-        camera.lookAt(activeObj.position.x, activeObj.position.y + 1.8, activeObj.position.z);
+        const mouseLeadX = Math.max(-2.5, Math.min(2.5, (mouseWorldPos.x - activeObj.position.x) * 0.12));
+        const mouseLeadZ = Math.max(-2.5, Math.min(2.5, (mouseWorldPos.z - activeObj.position.z) * 0.12));
+
+        _targetCamPos.set(
+          activeObj.position.x + _camOffset.x + mouseLeadX,
+          activeObj.position.y + _camOffset.y,
+          activeObj.position.z + _camOffset.z + mouseLeadZ
+        );
+        camera.position.lerp(_targetCamPos, 0.10);
+
+        _targetLookPos.set(
+          activeObj.position.x + _lookOffset.x + mouseLeadX * 0.4,
+          activeObj.position.y + _lookOffset.y,
+          activeObj.position.z + _lookOffset.z + mouseLeadZ * 0.4
+        );
+        camera.lookAt(_targetLookPos);
       }
 
       // G. HACKING MECHANIC DETECTION & EXECUTION (Requirement 5)
@@ -715,8 +745,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         if (enf.isHacked) {
           // HACKED ALLY ENFORCER: Bodyguard following player & attacking Core-X or rogue droids!
           enf.hackTimer -= delta;
-          const followGoal = activeObj.position.clone().add(new THREE.Vector3(-4, 0, 2));
-          enfPos.lerp(followGoal, 0.04);
+          _followGoal.copy(activeObj.position).add(_followOffset);
+          enfPos.lerp(_followGoal, 0.04);
           enf.animateWalk(time, true);
 
           // Attack nearest rogue target
@@ -1062,57 +1092,75 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         });
       }
 
-      // L. UPDATE REACT HUD STATS
-      onUpdateStats({
-        health: s.health,
-        maxHealth: s.maxHealth,
-        energy: s.energy,
-        maxEnergy: s.maxEnergy,
-        thermalStability: Math.round(s.thermalStability),
-        ammo: s.ammo,
-        maxAmmo: s.maxAmmo,
-        score: s.score,
-        wave: s.wave,
-        levelTitle: s.levelTitle,
-        objectiveText: s.objectiveText,
-        hackProgress: Math.round(s.hackProgress),
-        isTetherActive: s.isTetherActive,
-        rescuedScientists: s.rescuedScientists,
-        totalScientists: s.totalScientists,
-        generatorsDestroyed: s.generatorsDestroyed,
-        totalGenerators: s.totalGenerators,
-        titanHealth: s.titanHealth,
-        isTitanAllied: s.isTitanAllied,
-        activeChassis: s.activeChassis,
-        isShieldActive: s.isShieldActive,
-        bossActive: s.bossActive,
-        bossHp: s.bossHp,
-        bossMaxHp: s.bossMaxHp,
-        bossPhase: s.bossPhase,
-        bossAlert: s.bossAlert,
-        scoutsEliminated: s.scoutsEliminated,
-        totalScouts: s.totalScouts,
-        enforcersEliminated: s.enforcersEliminated,
-        totalEnforcers: s.totalEnforcers,
-        activeBanner: s.activeBanner,
-        activeWeapon: s.activeWeapon,
-        sniperAllyRescued: true,
-        sniperAllyHp: 350,
-        sniperAllyMaxHp: 350,
-        sniperAllyDancing: unit7.isDancing,
-        hackPromptTarget: s.hackPromptTarget,
-        hackingAnimState: s.hackingAnimState,
-        activeAllyTimer: s.activeAllyTimer,
-        cinematicIntroActive: s.cinematicIntroActive,
-      });
+      // L. UPDATE REACT HUD STATS (Throttled to 20Hz for Maximum 60FPS Performance!)
+      hudThrottleTimer += delta;
+      const isCriticalHudUpdate =
+        s.health <= 0 ||
+        s.bossHp <= 0 ||
+        s.cinematicIntroActive ||
+        s.hackingAnimState !== prevHackingState ||
+        s.activeBanner !== prevBanner;
+
+      if (hudThrottleTimer >= 0.05 || isCriticalHudUpdate) {
+        hudThrottleTimer = 0;
+        prevHackingState = s.hackingAnimState;
+        prevBanner = s.activeBanner;
+
+        onUpdateStats({
+          health: s.health,
+          maxHealth: s.maxHealth,
+          energy: s.energy,
+          maxEnergy: s.maxEnergy,
+          thermalStability: Math.round(s.thermalStability),
+          ammo: s.ammo,
+          maxAmmo: s.maxAmmo,
+          score: s.score,
+          wave: s.wave,
+          levelTitle: s.levelTitle,
+          objectiveText: s.objectiveText,
+          hackProgress: Math.round(s.hackProgress),
+          isTetherActive: s.isTetherActive,
+          rescuedScientists: s.rescuedScientists,
+          totalScientists: s.totalScientists,
+          generatorsDestroyed: s.generatorsDestroyed,
+          totalGenerators: s.totalGenerators,
+          titanHealth: s.titanHealth,
+          isTitanAllied: s.isTitanAllied,
+          activeChassis: s.activeChassis,
+          isShieldActive: s.isShieldActive,
+          bossActive: s.bossActive,
+          bossHp: s.bossHp,
+          bossMaxHp: s.bossMaxHp,
+          bossPhase: s.bossPhase,
+          bossAlert: s.bossAlert,
+          scoutsEliminated: s.scoutsEliminated,
+          totalScouts: s.totalScouts,
+          enforcersEliminated: s.enforcersEliminated,
+          totalEnforcers: s.totalEnforcers,
+          activeBanner: s.activeBanner,
+          activeWeapon: s.activeWeapon,
+          sniperAllyRescued: true,
+          sniperAllyHp: 350,
+          sniperAllyMaxHp: 350,
+          sniperAllyDancing: unit7.isDancing,
+          hackPromptTarget: s.hackPromptTarget,
+          hackingAnimState: s.hackingAnimState,
+          activeAllyTimer: s.activeAllyTimer,
+          cinematicIntroActive: s.cinematicIntroActive,
+        });
+      }
 
       // Render 3D Scene
       renderer.render(scene, camera);
 
-      // Render 2D Floating Combat Text (Requirement 8 - Clean, no debug coordinates!)
+      // Render 2D Floating Combat Text (Only clears and draws when active)
       if (overlayCtx && overlayCanvas) {
-        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, []);
+        if (vfx.floatingTexts.length > 0 || vfx.damageFlash > 0.01 || vfx.shieldFlash > 0.01) {
+          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, []);
+        } else {
+          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        }
       }
 
       animId = requestAnimationFrame(loop);

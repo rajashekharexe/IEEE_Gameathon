@@ -34,23 +34,24 @@ export class FactoryArenaBuilder {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // 1. Dark asphalt base (Deep midnight slate)
-    ctx.fillStyle = '#080d1a';
+    // 1. Crisp High-Tech Porcelain Titanium Ceramic Base (Bright & Aesthetic)
+    ctx.fillStyle = '#e2e8f0';
     ctx.fillRect(0, 0, size, size);
 
-    // Subtle asphalt noise / road grit
-    ctx.fillStyle = '#0f172a';
-    for (let i = 0; i < 400; i++) {
-      const rx = Math.random() * size;
-      const ry = Math.random() * size;
-      ctx.fillRect(rx, ry, Math.random() * 4 + 1, Math.random() * 4 + 1);
+    // Ceramic tile grid pattern
+    ctx.fillStyle = '#f1f5f9';
+    const tileSize = 128;
+    for (let x = 0; x < size; x += tileSize * 2) {
+      for (let y = 0; y < size; y += tileSize * 2) {
+        ctx.fillRect(x, y, tileSize, tileSize);
+        ctx.fillRect(x + tileSize, y + tileSize, tileSize, tileSize);
+      }
     }
 
-    // 2. City Road Grid & Lane Dividers
-    ctx.strokeStyle = 'rgba(30, 41, 59, 0.8)';
-    ctx.lineWidth = 4;
-    const blockSize = 256;
-    for (let x = 0; x < size; x += blockSize) {
+    // High-tech slate grid seams
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
+    ctx.lineWidth = 2;
+    for (let x = 0; x < size; x += tileSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, size);
@@ -62,11 +63,10 @@ export class FactoryArenaBuilder {
       ctx.stroke();
     }
 
-    // Yellow Dashed Highway / Road Median Lines
-    ctx.strokeStyle = '#eab308';
-    ctx.lineWidth = 3;
+    // 2. High-Tech Road Arteries (Cyan & Amber)
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 4;
     ctx.setLineDash([24, 16]);
-    // Main avenue horizontal and vertical center
     ctx.beginPath();
     ctx.moveTo(0, size / 2);
     ctx.lineTo(size, size / 2);
@@ -78,10 +78,10 @@ export class FactoryArenaBuilder {
     ctx.stroke();
     ctx.setLineDash([]); // reset
 
-    // 3. Glowing Cyan Circuit Veins & Data Conduits (Embedded in road trenches)
-    ctx.strokeStyle = '#0284c7';
+    // 3. Vibrant Glowing Cyan Data Conduits & Neural Traces
+    ctx.strokeStyle = '#00f0ff';
     ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 10;
     ctx.lineWidth = 3;
 
     const drawCircuit = (pts: [number, number][]) => {
@@ -93,7 +93,7 @@ export class FactoryArenaBuilder {
       const last = pts[pts.length - 1];
       ctx.fillStyle = '#00f0ff';
       ctx.beginPath();
-      ctx.arc(last[0], last[1], 5, 0, Math.PI * 2);
+      ctx.arc(last[0], last[1], 4.5, 0, Math.PI * 2);
       ctx.fill();
     };
 
@@ -104,18 +104,18 @@ export class FactoryArenaBuilder {
 
     // 4. Stenciled City Road Markings & Sector Numbers
     ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillStyle = '#0f172a';
     ctx.font = '900 22px monospace';
     ctx.fillText('SECTOR 07 // EVAC ROUTE →', 60, size / 2 - 20);
     ctx.fillText('OMNICORP FOUNDRY DEFENSE', size / 2 + 30, size / 2 - 20);
-    ctx.fillText('RESTRICTED: MACHINE CONTROL', 60, size / 2 + 40);
+    ctx.fillText('ACTIVE ZONE: OVERRIDE PROTOCOL', 60, size / 2 + 40);
 
     // Hazard Stripes on City Borders
     ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(0, 0, size, 14);
-    ctx.fillRect(0, size - 14, size, 14);
-    ctx.fillRect(0, 0, 14, size);
-    ctx.fillRect(size - 14, 0, 14, size);
+    ctx.fillRect(0, 0, size, 12);
+    ctx.fillRect(0, size - 12, size, 12);
+    ctx.fillRect(0, 0, 12, size);
+    ctx.fillRect(size - 12, 0, 12, size);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
@@ -171,13 +171,13 @@ export class FactoryArenaBuilder {
 
   // Build the complete futuristic robot-revolt city arena
   public build(scene: THREE.Scene): ArenaComponents {
-    // 1. Dark Asphalt City Warzone Floor (180m x 180m)
+    // 1. Clean High-Tech Porcelain Titanium Ceramic Floor (180m x 180m)
     const floorGeo = new THREE.PlaneGeometry(180, 180);
     const floorTexture = this.createDarkCityFloorTexture();
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTexture,
-      roughness: 0.35,
-      metalness: 0.65,
+      roughness: 0.2,
+      metalness: 0.25,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -187,9 +187,9 @@ export class FactoryArenaBuilder {
     // 2. Catwalk Platform Zone where Player Deploys
     const catwalk = new THREE.Group();
     const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.4,
-      metalness: 0.8,
+      color: 0x475569,
+      roughness: 0.35,
+      metalness: 0.75,
     });
 
     const platGeo = new THREE.BoxGeometry(16, 0.05, 10);
@@ -199,18 +199,18 @@ export class FactoryArenaBuilder {
     catwalk.add(platform);
     scene.add(catwalk);
 
-    // 3. Destroyed Futuristic Skyscrapers & Urban Ruins (Perimeter)
+    // 3. Futuristic Skyscrapers & Urban Architecture (Perimeter)
     const bldgMat = new THREE.MeshStandardMaterial({
-      color: 0x090f1d,
-      roughness: 0.6,
-      metalness: 0.5,
+      color: 0x64748b,
+      roughness: 0.45,
+      metalness: 0.35,
     });
     const rebarMat = new THREE.MeshStandardMaterial({
-      color: 0x475569,
+      color: 0x94a3b8,
       roughness: 0.3,
-      metalness: 0.85,
+      metalness: 0.8,
     });
-    const windowMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+    const windowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const brokenWindowMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e });
 
     const buildingConfigs: { x: number; z: number; w: number; h: number; d: number; destroyed?: boolean }[] = [
@@ -306,18 +306,18 @@ export class FactoryArenaBuilder {
 
     // 5. Broken Vehicles (Wrecked armored patrol cruisers & burning transport pods)
     const vehicleMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
+      color: 0x475569,
       roughness: 0.35,
-      metalness: 0.85,
+      metalness: 0.8,
     });
     const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
+      color: 0x0284c7,
       roughness: 0.1,
       metalness: 0.9,
     });
     const wheelMat = new THREE.MeshStandardMaterial({
-      color: 0x0a0e17,
-      roughness: 0.9,
+      color: 0x1e293b,
+      roughness: 0.85,
     });
 
     const fireLights: THREE.PointLight[] = [];
@@ -350,7 +350,7 @@ export class FactoryArenaBuilder {
       });
 
       if (hasFire) {
-        const fireLight = new THREE.PointLight(0xff5500, 3.5, 14);
+        const fireLight = new THREE.PointLight(0xff5500, 1.8, 8);
         fireLight.position.set(0, 1.8, 1.6);
         vGroup.add(fireLight);
         fireLights.push(fireLight);
@@ -372,9 +372,9 @@ export class FactoryArenaBuilder {
 
     // 6. Metal Barricades & Road Blockades
     const barrierMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
+      color: 0x64748b,
       roughness: 0.4,
-      metalness: 0.8,
+      metalness: 0.65,
     });
     const stripeMat = new THREE.MeshStandardMaterial({
       color: 0xf59e0b,
@@ -406,9 +406,9 @@ export class FactoryArenaBuilder {
     // 7. Power Generators (3 Units for Level 2 Objective: DESTROY 3 GENERATORS)
     const generators: PowerGeneratorEntity[] = [];
     const genMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.3,
-      metalness: 0.85,
+      color: 0x334155,
+      roughness: 0.35,
+      metalness: 0.75,
     });
     const genCoreMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
     const genHazardMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b });
@@ -441,7 +441,7 @@ export class FactoryArenaBuilder {
       chimney.position.y = 4.2;
       genGroup.add(chimney);
 
-      const coreLight = new THREE.PointLight(0x00f0ff, 4.0, 18);
+      const coreLight = new THREE.PointLight(0x00f0ff, 2.0, 10);
       coreLight.position.y = 2.6;
       genGroup.add(coreLight);
 
@@ -581,7 +581,7 @@ export class FactoryArenaBuilder {
       sDome.position.y = 0.3;
       sGroup.add(sDome);
 
-      const light = new THREE.PointLight(0xff0022, 3.5, 18);
+      const light = new THREE.PointLight(0xff0022, 1.8, 10);
       light.position.y = 0.4;
       sGroup.add(light);
 
@@ -592,7 +592,7 @@ export class FactoryArenaBuilder {
     const updateSirens = (time: number) => {
       sirens.forEach((siren) => {
         const pulse = (Math.sin(time * 6 + siren.baseAngle) + 1) * 0.5;
-        siren.light.intensity = 1.0 + pulse * 4.0;
+        siren.light.intensity = 0.8 + pulse * 2.0;
       });
 
       // Drifting smoke animation

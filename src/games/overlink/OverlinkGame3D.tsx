@@ -175,9 +175,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       precision: 'mediump',
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.15));
+    renderer.shadowMap.enabled = false;
     container.appendChild(renderer.domElement);
 
     // 4. ATMOSPHERIC LIGHTING (Bright, Crisp, Daylight / Twilight Luminous Illumination)
@@ -186,16 +185,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
     dirLight.position.set(35, 55, 25);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
-    dirLight.shadow.camera.near = 1.0;
-    dirLight.shadow.camera.far = 150;
-    dirLight.shadow.camera.left = -60;
-    dirLight.shadow.camera.right = 60;
-    dirLight.shadow.camera.top = 60;
-    dirLight.shadow.camera.bottom = -60;
-    dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
 
     const backLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
@@ -329,11 +318,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     const sniperProjMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
     const allyProjMat = new THREE.MeshBasicMaterial({ color: 0x34d399 });
 
-    // Raycaster for mouse aiming
-    const raycaster = new THREE.Raycaster();
-    const mousePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const mouseWorldPos = new THREE.Vector3();
-
     // 14. GAME STATE & TIMERS + HIGH-FPS PERFORMANCE CACHES
     const clock = new THREE.Clock();
     let animId: number;
@@ -349,15 +333,29 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     // Pre-allocated static vectors (0 GC heap allocations during 60fps render loop)
     const _cinematicCamPos = new THREE.Vector3(0, 14, 18);
     const _cinematicLook = new THREE.Vector3(0, 10, -32);
-    const _camOffset = new THREE.Vector3(0, 7.8, 9.2);
-    const _lookOffset = new THREE.Vector3(0, 1.2, -2.5);
     const _targetCamPos = new THREE.Vector3();
     const _targetLookPos = new THREE.Vector3();
-    const _mouseNdc = new THREE.Vector2();
     const _followOffset = new THREE.Vector3(-4, 0, 2);
     const _followGoal = new THREE.Vector3();
     const _sprintOffset = new THREE.Vector3(0, 0.2, 0);
     const _tempVec3 = new THREE.Vector3();
+
+    // Free Fire / PUBG 3rd-Person Orbital Combat Camera State
+    let cameraYaw = Math.PI; // Starts facing North towards enemy foundry
+    let cameraPitch = 0.05; // Forward horizon eye-level view
+    let isPointerLocked = false;
+
+    const handleContainerClick = () => {
+      if (document.pointerLockElement !== container && container) {
+        container.requestPointerLock?.();
+      }
+    };
+    container.addEventListener('click', handleContainerClick);
+
+    const handlePointerLockChange = () => {
+      isPointerLocked = document.pointerLockElement === container;
+    };
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
 
     let bannerTimeout: number | undefined;
     const triggerBanner = (type: 'SUCCESS' | 'ALERT' | 'INFO', title: string, subtitle: string, duration = 3500) => {
@@ -483,27 +481,23 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       }
 
-      // D. MOUSE AIM RAYCASTING (Zero allocation)
-      const mouse = input.state.mouse;
-      _mouseNdc.set((mouse.x / window.innerWidth) * 2 - 1, -(mouse.y / window.innerHeight) * 2 + 1);
-      raycaster.setFromCamera(_mouseNdc, camera);
-      let hitPos = raycaster.ray.intersectPlane(mousePlane, mouseWorldPos);
-      if (!hitPos) {
-        hitPos = mouseWorldPos.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, 25);
+      // D. MOUSE AIM & CAMERA YAW/PITCH (Free Fire / PUBG 360° Surrounding Look)
+      const mouseDelta = input.consumeMouseDelta();
+      if ((mouseDelta.dx !== 0 || mouseDelta.dy !== 0) && !s.cinematicIntroActive) {
+        const mouseSens = 0.0028;
+        cameraYaw -= mouseDelta.dx * mouseSens;
+        cameraPitch += mouseDelta.dy * mouseSens * 0.75;
+        // Clamp pitch: comfortably look up at boss/skyline and down at robots (never straight down at feet)
+        cameraPitch = Math.max(-0.25, Math.min(0.30, cameraPitch));
       }
 
-      if (hitPos && !s.cinematicIntroActive) {
-        const targetAngle = Math.atan2(
-          hitPos.x - activeObj.position.x,
-          hitPos.z - activeObj.position.z
-        );
-        activeObj.rotation.y = targetAngle;
-        if (s.activeChassis === 'UNIT7') {
-          unit7.updateLaserAim(hitPos);
-        }
-      }
+      // Forward and Right vectors derived from cameraYaw
+      const forwardX = Math.sin(cameraYaw);
+      const forwardZ = Math.cos(cameraYaw);
+      const rightX = -forwardZ;
+      const rightZ = forwardX;
 
-      // E. WASD MOVEMENT & SPRINT
+      // E. WASD MOVEMENT & SPRINT (Camera-Relative, Free Fire / PUBG style)
       const isSprinting = input.isActionPressed('dash') && s.energy > 5;
       if (isSprinting) {
         s.energy = Math.max(0, s.energy - 15 * delta);
@@ -517,25 +511,35 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           ? 4.5 * delta
           : (isSprinting ? 13.5 : 7.8) * delta;
 
-      let inputFwd = 0;
-      let inputRight = 0;
-      if (input.isActionPressed('up')) inputFwd += 1;
-      if (input.isActionPressed('down')) inputFwd -= 1;
-      if (input.isActionPressed('right')) inputRight += 1;
-      if (input.isActionPressed('left')) inputRight -= 1;
+      let moveX = 0;
+      let moveZ = 0;
+      if (input.isActionPressed('up')) {
+        moveX += forwardX;
+        moveZ += forwardZ;
+      }
+      if (input.isActionPressed('down')) {
+        moveX -= forwardX;
+        moveZ -= forwardZ;
+      }
+      if (input.isActionPressed('right')) {
+        moveX += rightX;
+        moveZ += rightZ;
+      }
+      if (input.isActionPressed('left')) {
+        moveX -= rightX;
+        moveZ -= rightZ;
+      }
 
-      const isMoving = (inputFwd !== 0 || inputRight !== 0) && !s.cinematicIntroActive;
+      const isMoving = (moveX !== 0 || moveZ !== 0) && !s.cinematicIntroActive;
       if (isMoving) {
-        const length = Math.hypot(inputFwd, inputRight);
-        const normFwd = inputFwd / length;
-        const normRight = inputRight / length;
+        const length = Math.hypot(moveX, moveZ);
+        const normX = moveX / length;
+        const normZ = moveZ / length;
 
-        // Direct, rock-solid tactical movement (W = Up/North, S = Down/South, A = Left, D = Right)
-        // Eliminates camera yaw drift and wobble!
-        activeObj.position.x += normRight * currentSpeed;
-        activeObj.position.z -= normFwd * currentSpeed;
+        activeObj.position.x += normX * currentSpeed;
+        activeObj.position.z += normZ * currentSpeed;
 
-        // Arena boundary clamp (-75m to 75m)
+        // Arena boundary clamp (-72m to 72m)
         activeObj.position.x = Math.max(-72, Math.min(72, activeObj.position.x));
         activeObj.position.z = Math.max(-72, Math.min(72, activeObj.position.z));
       }
@@ -547,24 +551,39 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         titan.animateWalk(time, isMoving);
       }
 
-      // F. HIGH-PRECISION COMBAT CHASE CAMERA (Smooth Centered Follow & Aim Lookahead)
+      // Character orientation faces camera yaw
       if (!s.cinematicIntroActive) {
-        const mouseLeadX = Math.max(-2.5, Math.min(2.5, (mouseWorldPos.x - activeObj.position.x) * 0.12));
-        const mouseLeadZ = Math.max(-2.5, Math.min(2.5, (mouseWorldPos.z - activeObj.position.z) * 0.12));
+        activeObj.rotation.y = cameraYaw;
+      }
+
+      // F. HIGH-PRECISION COMBAT CHASE CAMERA (Free Fire / PUBG Over-The-Shoulder View)
+      if (!s.cinematicIntroActive) {
+        const cosPitch = Math.cos(cameraPitch);
+        const sinPitch = Math.sin(cameraPitch);
+
+        const camDist = 4.8;
+        const camHeight = 2.1;
+        const shoulderOffset = 0.32;
 
         _targetCamPos.set(
-          activeObj.position.x + _camOffset.x + mouseLeadX,
-          activeObj.position.y + _camOffset.y,
-          activeObj.position.z + _camOffset.z + mouseLeadZ
+          activeObj.position.x - forwardX * camDist * cosPitch + rightX * shoulderOffset,
+          activeObj.position.y + camHeight + camDist * sinPitch,
+          activeObj.position.z - forwardZ * camDist * cosPitch + rightZ * shoulderOffset
         );
-        camera.position.lerp(_targetCamPos, 0.10);
+        const camLerp = 1 - Math.exp(-14 * Math.min(delta, 0.05));
+        camera.position.lerp(_targetCamPos, camLerp);
 
+        const lookDist = 25.0;
         _targetLookPos.set(
-          activeObj.position.x + _lookOffset.x + mouseLeadX * 0.4,
-          activeObj.position.y + _lookOffset.y,
-          activeObj.position.z + _lookOffset.z + mouseLeadZ * 0.4
+          activeObj.position.x + forwardX * lookDist + rightX * shoulderOffset,
+          activeObj.position.y + 1.4 - sinPitch * lookDist,
+          activeObj.position.z + forwardZ * lookDist + rightZ * shoulderOffset
         );
         camera.lookAt(_targetLookPos);
+
+        if (s.activeChassis === 'UNIT7') {
+          unit7.updateLaserAim(_targetLookPos);
+        }
       }
 
       // G. HACKING MECHANIC DETECTION & EXECUTION (Requirement 5)
@@ -650,9 +669,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         // Kinetic Muzzle Flash
         vfx.emitSparks(unit7.weaponMuzzle, 12, 0x10b981, 8);
 
-        // Projectile towards mouseWorldPos
-        const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle).normalize();
-        shootDir.y = 0; // horizontal combat plane
+        // Projectile towards target look point in center crosshair
+        const shootDir = _targetLookPos.clone().sub(unit7.weaponMuzzle).normalize();
 
         const pMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
         pMesh.position.copy(unit7.weaponMuzzle);
@@ -1153,13 +1171,51 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       // Render 3D Scene
       renderer.render(scene, camera);
 
-      // Render 2D Floating Combat Text (Only clears and draws when active)
+      // Render 2D Combat Reticle & Floating Combat Text
       if (overlayCtx && overlayCanvas) {
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+        // Draw Free Fire / PUBG Center Crosshair (Only during active gameplay)
+        if (!s.cinematicIntroActive) {
+          const cx = overlayCanvas.width / 2;
+          const cy = overlayCanvas.height / 2;
+          overlayCtx.save();
+          overlayCtx.lineWidth = 1.5;
+          overlayCtx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+          overlayCtx.fillStyle = '#10b981';
+
+          // Center dot
+          overlayCtx.beginPath();
+          overlayCtx.arc(cx, cy, 2, 0, Math.PI * 2);
+          overlayCtx.fill();
+
+          // 4 tactical reticle brackets
+          const gap = isSprinting ? 14 : 9;
+          const len = 7;
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(cx, cy - gap);
+          overlayCtx.lineTo(cx, cy - gap - len);
+          overlayCtx.moveTo(cx, cy + gap);
+          overlayCtx.lineTo(cx, cy + gap + len);
+          overlayCtx.moveTo(cx - gap, cy);
+          overlayCtx.lineTo(cx - gap - len, cy);
+          overlayCtx.moveTo(cx + gap, cy);
+          overlayCtx.lineTo(cx + gap + len, cy);
+          overlayCtx.stroke();
+
+          // If pointer is not locked yet, show subtle prompt
+          if (!isPointerLocked) {
+            overlayCtx.font = '600 12px monospace';
+            overlayCtx.textAlign = 'center';
+            overlayCtx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            overlayCtx.fillText('CLICK SCREEN FOR PUBG / FREE FIRE MOUSE LOOK • ESC TO UNLOCK', cx, cy + 34);
+          }
+
+          overlayCtx.restore();
+        }
+
         if (vfx.floatingTexts.length > 0 || vfx.damageFlash > 0.01 || vfx.shieldFlash > 0.01) {
-          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
           vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, []);
-        } else {
-          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         }
       }
 
@@ -1173,6 +1229,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       window.clearTimeout(initTimer);
       if (bannerTimeout) window.clearTimeout(bannerTimeout);
       window.removeEventListener('resize', handleResize);
+      container.removeEventListener('click', handleContainerClick);
+      document.removeEventListener('pointerlockchange', handlePointerLockChange);
       tether.dispose(scene);
       boss.dispose();
       vfx.dispose(scene);

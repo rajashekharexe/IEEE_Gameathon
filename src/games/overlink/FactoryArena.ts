@@ -181,22 +181,12 @@ export class FactoryArenaBuilder {
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
+    floor.matrixAutoUpdate = false;
+    floor.updateMatrix();
     scene.add(floor);
 
-    // 2. Catwalk Platform Zone where Player Deploys
+    // 2. Deployment Zone
     const catwalk = new THREE.Group();
-    const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x475569,
-      roughness: 0.35,
-      metalness: 0.75,
-    });
-
-    const platGeo = new THREE.BoxGeometry(16, 0.05, 10);
-    const platform = new THREE.Mesh(platGeo, steelMat);
-    platform.position.set(-6, 0.02, 5);
-    platform.receiveShadow = true;
-    catwalk.add(platform);
     scene.add(catwalk);
 
     // 3. Futuristic Skyscrapers & Urban Architecture (Perimeter)
@@ -238,8 +228,6 @@ export class FactoryArenaBuilder {
       bldgGroup.position.set(cfg.x, cfg.h / 2, cfg.z);
 
       const mainMesh = new THREE.Mesh(new THREE.BoxGeometry(cfg.w, cfg.h, cfg.d), bldgMat);
-      mainMesh.castShadow = true;
-      mainMesh.receiveShadow = true;
       bldgGroup.add(mainMesh);
 
       // Lit windows rows on facades
@@ -270,6 +258,10 @@ export class FactoryArenaBuilder {
         }
       }
 
+      bldgGroup.traverse((obj) => {
+        obj.matrixAutoUpdate = false;
+        obj.updateMatrix();
+      });
       scene.add(bldgGroup);
     });
 
@@ -296,6 +288,8 @@ export class FactoryArenaBuilder {
       const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 4), signMat);
       signMesh.position.set(x, y, z);
       signMesh.rotation.y = rotY;
+      signMesh.matrixAutoUpdate = false;
+      signMesh.updateMatrix();
       scene.add(signMesh);
     };
 
@@ -329,7 +323,6 @@ export class FactoryArenaBuilder {
 
       const chassis = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 5.8), vehicleMat);
       chassis.position.y = 0.9;
-      chassis.castShadow = true;
       vGroup.add(chassis);
 
       const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.0, 3.2), glassMat);
@@ -361,6 +354,10 @@ export class FactoryArenaBuilder {
         vGroup.add(flame);
       }
 
+      vGroup.traverse((obj) => {
+        obj.matrixAutoUpdate = false;
+        obj.updateMatrix();
+      });
       scene.add(vGroup);
     };
 
@@ -388,13 +385,16 @@ export class FactoryArenaBuilder {
 
       const base = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.2, 0.8), barrierMat);
       base.position.y = 0.6;
-      base.castShadow = true;
       bGroup.add(base);
 
       const stripe = new THREE.Mesh(new THREE.BoxGeometry(4.55, 0.35, 0.82), stripeMat);
       stripe.position.y = 0.6;
       bGroup.add(stripe);
 
+      bGroup.traverse((obj) => {
+        obj.matrixAutoUpdate = false;
+        obj.updateMatrix();
+      });
       scene.add(bGroup);
     };
 
@@ -504,11 +504,20 @@ export class FactoryArenaBuilder {
     crateLocations.forEach(([x, y, z, w, h, d], index) => {
       const c = createIndustrialCrate(w, h, d, index);
       c.position.set(x, y, z);
+      c.traverse((obj) => {
+        obj.matrixAutoUpdate = false;
+        obj.updateMatrix();
+      });
       scene.add(c);
       crates.push(c);
     });
 
     // 9. Heavy Overhead Structural Pillars
+    const steelMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.4,
+      metalness: 0.7,
+    });
     const pillars: THREE.Mesh[] = [];
     const pillarGeo = new THREE.BoxGeometry(3.0, 20, 3.0);
     const pillarPositions: [number, number][] = [
@@ -523,8 +532,8 @@ export class FactoryArenaBuilder {
     pillarPositions.forEach(([x, z]) => {
       const pillar = new THREE.Mesh(pillarGeo, steelMat);
       pillar.position.set(x, 10, z);
-      pillar.castShadow = true;
-      pillar.receiveShadow = true;
+      pillar.matrixAutoUpdate = false;
+      pillar.updateMatrix();
       scene.add(pillar);
       pillars.push(pillar);
     });

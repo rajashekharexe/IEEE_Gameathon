@@ -197,6 +197,12 @@ class SoundEngine {
     });
   }
 
+  private bgmIntensity: 'normal' | 'boss' = 'normal';
+
+  public setBGMIntensity(intensity: 'normal' | 'boss') {
+    this.bgmIntensity = intensity;
+  }
+
   // Procedural Cyberpunk Bass Synth Arpeggio BGM
   public startBGM() {
     if (this.isBgmPlaying || this.isMuted) return;
@@ -204,37 +210,66 @@ class SoundEngine {
     if (!this.ctx) return;
 
     this.isBgmPlaying = true;
-    const bassline = [110, 110, 130.81, 110, 146.83, 130.81, 98, 123.47];
+    const normalBass = [110, 110, 130.81, 110, 146.83, 130.81, 98, 123.47];
+    const bossBass = [73.42, 87.31, 73.42, 110, 98.0, 73.42, 65.41, 82.41]; // D2, F2, A2 aggressive
     let step = 0;
 
     const playStep = () => {
       if (!this.isBgmPlaying || !this.ctx || this.isMuted) return;
 
+      const isBoss = this.bgmIntensity === 'boss';
+      const bassline = isBoss ? bossBass : normalBass;
+      const speed = isBoss ? 135 : 200;
+
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
 
-      osc.type = 'sawtooth';
+      osc.type = isBoss ? 'sawtooth' : 'triangle';
       osc.frequency.setValueAtTime(bassline[step % bassline.length], this.ctx.currentTime);
 
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(350, this.ctx.currentTime);
+      filter.frequency.setValueAtTime(isBoss ? 750 : 350, this.ctx.currentTime);
 
-      gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+      gain.gain.setValueAtTime(isBoss ? 0.12 : 0.08, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + (speed / 1000) * 0.9);
 
       osc.connect(filter);
       filter.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start();
-      osc.stop(this.ctx.currentTime + 0.18);
+      osc.stop(this.ctx.currentTime + (speed / 1000) * 0.9);
 
       step++;
-      setTimeout(playStep, 200);
+      setTimeout(playStep, speed);
     };
 
     playStep();
+  }
+
+  // Shield Deflection Ricochet Chime
+  public playShieldDeflect() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200 + Math.random() * 300, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.14);
+
+    gain.gain.setValueAtTime(0.22, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.14);
   }
 
   // Heavy Titan Hydraulic Slam Cannon with mechanical piston recoil

@@ -1,4 +1,4 @@
-// Master 3D WebGL Game Engine with Body-Swapping, Enemy Waves, Evacuation Escort, and CORE-X Boss
+// Master 3D WebGL Game Engine with Body-Swapping, Enemy Waves, Evacuation Escort, CORE-X Boss, and VFX Juice
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { factoryArena } from './FactoryArena';
@@ -8,6 +8,7 @@ import { bossFactory } from './BossModel';
 import type { BossCoreXEntity } from './BossModel';
 import { NeuralTetherEngine } from './TetherEngine';
 import { ScreenShake } from '../../engine/screenshake';
+import { VFXSystem } from './VFXSystem';
 import { input } from '../../engine/input';
 import { sounds } from '../../engine/audio';
 
@@ -47,6 +48,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
   onVictory,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const stateRef = useRef({
     health: 82,
@@ -78,7 +80,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    const overlayCanvas = canvasRef.current;
+    if (!container || !overlayCanvas) return;
+
+    const overlayCtx = overlayCanvas.getContext('2d');
+    overlayCanvas.width = window.innerWidth;
+    overlayCanvas.height = window.innerHeight;
 
     const s = stateRef.current;
 
@@ -87,7 +94,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     scene.background = new THREE.Color(0x060914);
     scene.fog = new THREE.FogExp2(0x060914, 0.022);
 
-    // 2. CAMERA & SCREEN SHAKE
+    // 2. CAMERA, SCREEN SHAKE & VFX
     const camera = new THREE.PerspectiveCamera(
       55,
       window.innerWidth / window.innerHeight,
@@ -96,6 +103,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     );
     camera.position.set(0, 14, 18);
     const screenShake = new ScreenShake();
+    const vfx = new VFXSystem(scene);
 
     // 3. RENDERER
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -228,6 +236,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      if (overlayCanvas) {
+        overlayCanvas.width = window.innerWidth;
+        overlayCanvas.height = window.innerHeight;
+      }
     };
     window.addEventListener('resize', handleResize);
 
@@ -237,8 +249,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       const delta = clock.getDelta();
       const time = clock.getElapsedTime();
 
-      // A. UPDATE FACTORY SIRENS
+      // A. UPDATE FACTORY SIRENS & VFX
       arena.updateSirens(time);
+      vfx.update(delta);
 
       // B. MOUSE AIM RAYCASTING
       const mouse = input.state.mouse;
@@ -293,6 +306,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           s.isTitanAllied = true;
           sounds.playExplosion('large');
           screenShake.addTrauma(0.5);
+          vfx.emitSparks(titan.group.position, 40, 0x00f0ff, 12, true);
+          vfx.emitText(titan.group.position, 'THERMAL OVERHEAT // EJECT!', '#ef4444', 20, true);
           unit7.group.position.copy(titan.group.position).add(new THREE.Vector3(2, 0, 2));
           unit7.group.visible = true;
         }
@@ -329,12 +344,15 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           unit7.group.visible = false;
           sounds.playPowerup();
           screenShake.addTrauma(0.2);
+          vfx.emitSparks(titan.group.position, 25, 0x00f0ff, 8, true);
+          vfx.emitText(titan.group.position, 'EMBODIED MK-IV TITAN!', '#00f0ff', 22, true);
         } else if (s.activeChassis === 'TITAN') {
           // EJECT BACK TO UNIT-7!
           s.activeChassis = 'UNIT7';
           unit7.group.position.copy(titan.group.position).add(new THREE.Vector3(2, 0, 2));
           unit7.group.visible = true;
           sounds.playDash();
+          vfx.emitText(titan.group.position, 'DISENGAGED', '#94a3b8', 16);
         }
       }
 
@@ -352,10 +370,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           tether.update(unit7.weaponMuzzle, delta, time);
           s.hackProgress = tether.state.progress;
 
-          // Tether hum sound
+          // Tether hum sound & sparks at target
           tetherAudioCooldown -= delta;
           if (tetherAudioCooldown <= 0) {
             sounds.playNeuralTetherHum();
+            vfx.emitSparks(titan.group.position.clone().add(new THREE.Vector3(0, 3, 0)), 4, 0x00f0ff, 5);
             tetherAudioCooldown = 0.14;
           }
 
@@ -366,6 +385,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             s.isTetherActive = false;
             sounds.playPowerup();
             screenShake.addTrauma(0.35);
+            vfx.emitSparks(titan.group.position, 45, 0x00f0ff, 12, true);
+            vfx.emitText(titan.group.position.clone().add(new THREE.Vector3(0, 5, 0)), 'NEURAL OVERLINK RESTORED!', '#00f0ff', 24, true);
             s.score += 2500;
           }
         } else {
@@ -393,6 +414,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           s.ammo--;
           sounds.playShoot(900);
           screenShake.addTrauma(0.04);
+          vfx.emitSparks(unit7.weaponMuzzle, 4, 0x00f0ff, 4);
 
           const projMesh = new THREE.Mesh(projGeo, playerProjMat);
           projMesh.position.copy(unit7.weaponMuzzle);
@@ -407,8 +429,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           sounds.playTitanCannon();
           screenShake.addTrauma(0.35);
 
+          const spawnPos = titan.group.position.clone().add(new THREE.Vector3(0, 3.2, 1.2));
+          vfx.emitSparks(spawnPos, 14, 0x38bdf8, 8);
+
           const projMesh = new THREE.Mesh(titanProjGeo, titanProjMat);
-          projMesh.position.copy(titan.group.position).add(new THREE.Vector3(0, 3.2, 1.2));
+          projMesh.position.copy(spawnPos);
           const shootDir = mouseWorldPos.clone().sub(titan.group.position).normalize();
           shootDir.y = 0;
           scene.add(projMesh);
@@ -482,9 +507,15 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             // Laser contact!
             if (s.activeChassis === 'TITAN' && s.isShieldActive) {
               // Blocked safely by Titan Aegis Shield
+              sounds.playShieldDeflect();
+              vfx.triggerShieldFlash();
+              vfx.emitSparks(activeObj.position, 6, 0x00f0ff, 8);
             } else if (!s.godMode) {
               s.health = Math.max(0, s.health - delta * 32);
               screenShake.addTrauma(delta * 0.4);
+              vfx.triggerDamageFlash();
+              vfx.emitSparks(activeObj.position, 4, 0xff0044, 7);
+
               laserDamageSoundCooldown -= delta;
               if (laserDamageSoundCooldown <= 0) {
                 sounds.playHit();
@@ -525,6 +556,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           shockwaveMat.opacity = 0.9;
           sounds.playExplosion('large');
           screenShake.addTrauma(0.65);
+          vfx.emitSparks(bossPos, 35, 0xff0044, 12);
+          vfx.emitText(bossPos.clone().add(new THREE.Vector3(0, 3, 0)), 'STOMP SHOCKWAVE!', '#ff0044', 20, true);
         }
 
         // Shockwave expansion
@@ -536,9 +569,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           if (Math.abs(distToPlayer - shockwaveRadius) < 1.8) {
             if (s.activeChassis === 'TITAN' && s.isShieldActive) {
               // Blocked by Titan shield
+              sounds.playShieldDeflect();
+              vfx.triggerShieldFlash();
             } else if (!s.godMode) {
               s.health = Math.max(0, s.health - delta * 45);
               screenShake.addTrauma(0.25);
+              vfx.triggerDamageFlash();
             }
           }
 
@@ -562,12 +598,18 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             const sc = scouts[j];
             if (p.mesh.position.distanceTo(sc.group.position) < (p.isTitanShot ? 2.5 : 1.2)) {
               sounds.playHit();
-              sc.hp -= p.isTitanShot ? 50 : 25;
+              const dmg = p.isTitanShot ? 50 : 25;
+              sc.hp -= dmg;
+              vfx.emitSparks(p.mesh.position, p.isTitanShot ? 26 : 14, 0x00f0ff, p.isTitanShot ? 10 : 6);
+              vfx.emitText(sc.group.position, p.isTitanShot ? '-50 CRIT' : '-25', '#38bdf8', 16, p.isTitanShot);
+
               scene.remove(p.mesh);
               projectiles.splice(i, 1);
 
               if (sc.hp <= 0) {
                 sounds.playExplosion('small');
+                vfx.emitSparks(sc.group.position, 35, 0xff0044, 12, true);
+                vfx.emitText(sc.group.position, '+250 DESTROYED', '#10b981', 18);
                 scene.remove(sc.group);
                 scouts.splice(j, 1);
                 s.score += 250;
@@ -586,6 +628,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             s.score += dmg * 10;
             screenShake.addTrauma(p.isTitanShot ? 0.22 : 0.08);
 
+            vfx.emitSparks(p.mesh.position, p.isTitanShot ? 30 : 14, 0xff0044, 9);
+            vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 4.2, 0)), p.isTitanShot ? '-65 SLAM' : '-22', '#ff4444', 20, p.isTitanShot);
+
             scene.remove(p.mesh);
             projectiles.splice(i, 1);
 
@@ -595,9 +640,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               s.bossHp = 0;
               sounds.playExplosion('large');
               screenShake.addTrauma(1.0);
+              vfx.emitSparks(boss.group.position, 90, 0xff0044, 16, true);
+              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 6, 0)), 'CORE-X OBLITERATED! +10,000', '#10b981', 28, true);
               s.score += 10000;
               scene.remove(boss.group);
               boss.dispose();
+              sounds.setBGMIntensity('normal');
 
               window.setTimeout(() => {
                 s.isRunning = false;
@@ -614,7 +662,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           if (s.isShieldActive && p.mesh.position.distanceTo(titan.group.position) < 3.8) {
             scene.remove(p.mesh);
             projectiles.splice(i, 1);
-            sounds.playHit();
+            sounds.playShieldDeflect();
+            vfx.triggerShieldFlash();
+            vfx.emitSparks(p.mesh.position, 18, 0x00f0ff, 9);
+            vfx.emitText(titan.group.position.clone().add(new THREE.Vector3(0, 3.5, 0)), 'SHIELD BLOCKED', '#00f0ff', 16);
             continue;
           }
 
@@ -625,6 +676,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               s.health = Math.max(0, s.health - dmg);
               sounds.playHit();
               screenShake.addTrauma(0.35);
+              vfx.triggerDamageFlash();
+              vfx.emitSparks(activeObj.position, 14, 0xff0033, 7);
+              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.5, 0)), p.isBossShot ? '-18' : '-10', '#ef4444', 18);
+
               if (s.health <= 0) {
                 s.isRunning = false;
                 onGameOver();
@@ -651,6 +706,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           if (activeObj.position.distanceTo(scPos) < 4.5) {
             sc.isRescued = true;
             sounds.playPowerup();
+            vfx.emitSparks(scPos, 20, 0xf59e0b, 7, true);
+            vfx.emitText(scPos.clone().add(new THREE.Vector3(0, 3, 0)), 'SCIENTIST RESCUED! FOLLOW ME!', '#fbbf24', 18);
           }
         } else {
           // Rescued: Follow towards Airlock!
@@ -662,6 +719,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             s.rescuedScientists++;
             s.score += 1500;
             sounds.playEvacuateChime();
+            vfx.emitSparks(airlockPos, 35, 0x10b981, 10, true);
+            vfx.emitText(airlockPos.clone().add(new THREE.Vector3(0, 3, 0)), '+1500 EVACUATED!', '#34d399', 22, true);
             scene.remove(sc.group);
             sc.group.position.set(999, 999, 999);
 
@@ -674,7 +733,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               boss.group.position.set(0, 0, -18);
               boss.isAwake = true;
               sounds.playBossRoar();
+              sounds.setBGMIntensity('boss');
               screenShake.addTrauma(0.85);
+              vfx.triggerBossAlertFlash();
+              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 6, 0)), 'CORE-X AWAKENED!', '#ff0033', 26, true);
 
               window.setTimeout(() => {
                 s.bossAlert = null;
@@ -712,7 +774,14 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         bossAlert: s.bossAlert,
       });
 
+      // Render 3D Scene
       renderer.render(scene, camera);
+
+      // Render 2D Floating Combat Text & Vignettes onto overlay canvas
+      if (overlayCtx && overlayCanvas) {
+        vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height);
+      }
+
       animId = requestAnimationFrame(loop);
     };
 
@@ -723,6 +792,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       window.removeEventListener('resize', handleResize);
       tether.dispose(scene);
       boss.dispose();
+      vfx.dispose(scene);
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -733,7 +803,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 w-full h-full block cursor-crosshair z-10"
-    />
+      className="absolute inset-0 w-full h-full block cursor-crosshair z-10 overflow-hidden"
+    >
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 pointer-events-none z-20"
+      />
+    </div>
   );
 };

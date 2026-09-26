@@ -81,6 +81,11 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, highScore }) 
             </>
           )}
         </div>
+
+        {/* IEEE Code Integrity & Attribution Badge */}
+        <div className="text-[10px] text-slate-500 font-mono mt-3">
+          Original Game Built On-Site for IEEE Gameathon • Powered by Three.js & Procedural Web Audio API
+        </div>
       </div>
     </div>
   );

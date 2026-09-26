@@ -106,7 +106,7 @@ export class InputManager {
     }
   };
 
-  public isActionPressed(action: 'left' | 'right' | 'up' | 'down' | 'fire' | 'dash' | 'special'): boolean {
+  public isActionPressed(action: 'left' | 'right' | 'up' | 'down' | 'fire' | 'dash' | 'special' | 'reload'): boolean {
     const k = this.state.keys;
     switch (action) {
       case 'left':
@@ -123,6 +123,8 @@ export class InputManager {
         return !!(k['ShiftLeft'] || k['ShiftRight']);
       case 'special':
         return !!(k['KeyE'] || k['KeyQ'] || k['e'] || k['q']);
+      case 'reload':
+        return !!(k['KeyR'] || k['r']);
       default:
         return false;
     }

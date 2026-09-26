@@ -138,6 +138,40 @@ class SoundEngine {
     osc.stop(now + 0.12);
   }
 
+  // Mechanical Cyber-Weapon Reload Sound (Magazine eject + high-voltage battery slide)
+  public playReload() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // Click 1: Magazine eject
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(480, now);
+    osc1.frequency.exponentialRampToValueAtTime(180, now + 0.08);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    osc1.connect(gain1);
+    gain1.connect(this.ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.08);
+
+    // Click 2: High-voltage battery pack slam
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(320, now + 0.35);
+    osc2.frequency.exponentialRampToValueAtTime(740, now + 0.45);
+    gain2.gain.setValueAtTime(0.22, now + 0.35);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    osc2.connect(gain2);
+    gain2.connect(this.ctx.destination);
+    osc2.start(now + 0.35);
+    osc2.stop(now + 0.5);
+  }
+
   // Coin / Power-up Arpeggio Chime
   public playPowerup() {
     if (this.isMuted) return;

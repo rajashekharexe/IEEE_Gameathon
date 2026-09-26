@@ -21,19 +21,19 @@ export class FactoryArenaBuilder {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Polished Slate Titanium base
-    ctx.fillStyle = '#0f172a';
+    // Clean High-Tech Porcelain Titanium Ceramic Base (Crisp, Aesthetic Light Theme)
+    ctx.fillStyle = '#e2e8f0';
     ctx.fillRect(0, 0, size, size);
 
-    // Industrial grid tiles with glowing neon seams
+    // Industrial grid tiles with crisp slate seams
     const tileSize = 128;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
     ctx.lineWidth = 2;
     for (let x = 0; x < size; x += tileSize) {
       for (let y = 0; y < size; y += tileSize) {
         ctx.strokeRect(x, y, tileSize, tileSize);
         // Corner tech accents
-        ctx.fillStyle = '#38bdf8';
+        ctx.fillStyle = '#0284c7';
         ctx.fillRect(x + 4, y + 4, 3, 3);
         ctx.fillRect(x + tileSize - 7, y + 4, 3, 3);
         ctx.fillRect(x + 4, y + tileSize - 7, 3, 3);
@@ -41,10 +41,10 @@ export class FactoryArenaBuilder {
       }
     }
 
-    // Glowing vibrant cyan circuit tracks
-    ctx.strokeStyle = '#00f0ff';
+    // Glowing vibrant electric cyan/blue circuit tracks
+    ctx.strokeStyle = '#0284c7';
     ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 14;
     ctx.lineWidth = 4;
 
     const drawCircuitPath = (points: [number, number][]) => {
@@ -56,7 +56,7 @@ export class FactoryArenaBuilder {
       ctx.stroke();
 
       const last = points[points.length - 1];
-      ctx.fillStyle = '#67e8f9';
+      ctx.fillStyle = '#00f0ff';
       ctx.beginPath();
       ctx.arc(last[0], last[1], 7, 0, Math.PI * 2);
       ctx.fill();
@@ -71,7 +71,7 @@ export class FactoryArenaBuilder {
     drawCircuitPath([[640, 256], [768, 128], [896, 128]]);
 
     // Hazard caution borders around edges
-    ctx.fillStyle = '#fbbf24';
+    ctx.fillStyle = '#f59e0b';
     ctx.fillRect(0, 0, size, 12);
     ctx.fillRect(0, size - 12, size, 12);
     ctx.fillRect(0, 0, 12, size);
@@ -80,19 +80,19 @@ export class FactoryArenaBuilder {
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(4, 4);
+    texture.repeat.set(8, 8);
     return texture;
   }
 
   // Build the complete factory arena
   public build(scene: THREE.Scene): ArenaComponents {
-    // 1. Reflective Metallic Floor (Lustrous, bright cyber finish)
-    const floorGeo = new THREE.PlaneGeometry(80, 80);
+    // 1. Reflective Metallic Floor (160m x 160m Expansive Industrial Warzone)
+    const floorGeo = new THREE.PlaneGeometry(160, 160);
     const floorTexture = this.createCircuitFloorTexture();
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTexture,
-      roughness: 0.18,
-      metalness: 0.82,
+      roughness: 0.22,
+      metalness: 0.58,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -102,9 +102,9 @@ export class FactoryArenaBuilder {
     // 2. Industrial Yellow Safety Catwalk (Flush diamond plate base)
     const catwalk = new THREE.Group();
     const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.3,
-      metalness: 0.85,
+      color: 0x475569,
+      roughness: 0.35,
+      metalness: 0.75,
     });
     const yellowRailMat = new THREE.MeshStandardMaterial({
       color: 0xf59e0b, // Industrial OSHA yellow
@@ -123,14 +123,14 @@ export class FactoryArenaBuilder {
     // 3. Heavy Industrial Cover Crates (Ribbed metal shipping crates with hazard stripes)
     const crates: THREE.Group[] = [];
     const crateBodyMat = new THREE.MeshStandardMaterial({
-      color: 0x111827,
-      roughness: 0.4,
-      metalness: 0.75,
+      color: 0x334155,
+      roughness: 0.45,
+      metalness: 0.65,
     });
     const crateFrameMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
-      roughness: 0.3,
-      metalness: 0.85,
+      roughness: 0.35,
+      metalness: 0.75,
     });
 
     const createIndustrialCrate = (w: number, h: number, d: number) => {
@@ -169,15 +169,26 @@ export class FactoryArenaBuilder {
     };
 
     const crateLocations: [number, number, number, number, number, number][] = [
-      // Right cover crates (Where scientists hide in Image 1)
+      // Central foundry covers
       [11, 1.4, 9, 3.2, 2.8, 3.2],
       [14.5, 1.2, 9, 3.0, 2.4, 3.0],
-      [11, 3.8, 9, 2.8, 2.0, 2.8], // Stacked crate!
-      // Left cover crates
+      [11, 3.8, 9, 2.8, 2.0, 2.8],
       [-11, 1.4, -5, 3.2, 2.8, 3.2],
       [-14.5, 1.2, -5, 3.0, 2.4, 3.0],
-      // Center background machinery
       [4, 1.8, -14, 4.0, 3.6, 3.5],
+      // East Sector: Power Distribution Stacks
+      [32, 1.6, 12, 3.5, 3.2, 3.5],
+      [36, 1.4, 15, 3.2, 2.8, 3.2],
+      [32, 4.2, 12, 2.8, 2.0, 2.8],
+      [28, 1.4, -20, 4.0, 2.8, 3.5],
+      // West Sector: Heavy Logistics Cargo
+      [-32, 1.6, 14, 3.8, 3.2, 3.8],
+      [-36, 1.4, 18, 3.2, 2.8, 3.2],
+      [-30, 1.5, -25, 4.5, 3.0, 4.0],
+      [-38, 1.4, -22, 3.5, 2.8, 3.5],
+      // South Runway: Evacuation Ramp Containers
+      [-16, 1.6, 36, 4.0, 3.2, 4.0],
+      [16, 1.6, 36, 4.0, 3.2, 4.0],
     ];
 
     crateLocations.forEach(([x, y, z, w, h, d]) => {
@@ -189,53 +200,57 @@ export class FactoryArenaBuilder {
 
     // 4. Overhead Gantry Crane & Steel Girders
     const girderMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
+      color: 0x334155,
       roughness: 0.4,
-      metalness: 0.8,
+      metalness: 0.75,
     });
 
-    // Cross-ceiling I-Beams with luminous cyber light bars
-    const beamGeo = new THREE.BoxGeometry(80, 1.2, 1.2);
+    // Cross-ceiling I-Beams with luminous cyber light bars across 160m
+    const beamGeo = new THREE.BoxGeometry(160, 1.4, 1.4);
     const neonMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const warmNeonMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
-    const lightBarGeo = new THREE.BoxGeometry(64, 0.15, 0.25);
+    const lightBarGeo = new THREE.BoxGeometry(140, 0.15, 0.25);
 
-    [-12, 0, 12].forEach((z, i) => {
+    [-36, -18, 0, 18, 36].forEach((z, i) => {
       const beam = new THREE.Mesh(beamGeo, girderMat);
-      beam.position.set(0, 13, z);
+      beam.position.set(0, 15, z);
       beam.castShadow = true;
       scene.add(beam);
 
-      const lightBar = new THREE.Mesh(lightBarGeo, i === 1 ? warmNeonMat : neonMat);
-      lightBar.position.set(0, 12.35, z);
+      const lightBar = new THREE.Mesh(lightBarGeo, i % 2 === 0 ? neonMat : warmNeonMat);
+      lightBar.position.set(0, 14.25, z);
       scene.add(lightBar);
     });
 
     // Overhead Hanging Crane Hook (like concept art)
-    const cableGeo = new THREE.CylinderGeometry(0.04, 0.04, 6, 8);
+    const cableGeo = new THREE.CylinderGeometry(0.04, 0.04, 7, 8);
     const cable = new THREE.Mesh(cableGeo, steelMat);
-    cable.position.set(0, 10, -2);
+    cable.position.set(0, 11, -2);
     scene.add(cable);
 
-    const hookGeo = new THREE.TorusGeometry(0.5, 0.12, 8, 16, Math.PI * 1.5);
+    const hookGeo = new THREE.TorusGeometry(0.6, 0.14, 8, 16, Math.PI * 1.5);
     const hook = new THREE.Mesh(hookGeo, yellowRailMat);
-    hook.position.set(0, 6.8, -2);
+    hook.position.set(0, 7.5, -2);
     hook.rotation.z = Math.PI / 2;
     scene.add(hook);
 
-    // 5. Heavy Structural Pillars
+    // 5. Heavy Structural Pillars across 160m Facility
     const pillars: THREE.Mesh[] = [];
-    const pillarGeo = new THREE.BoxGeometry(2.8, 14, 2.8);
+    const pillarGeo = new THREE.BoxGeometry(3.2, 16, 3.2);
     const pillarPositions: [number, number][] = [
-      [-18, -18],
-      [18, -18],
-      [-18, 18],
-      [18, 18],
+      [-48, -48],
+      [48, -48],
+      [-48, 48],
+      [48, 48],
+      [-48, 0],
+      [48, 0],
+      [0, -48],
+      [0, 48],
     ];
 
     pillarPositions.forEach(([x, z]) => {
       const pillar = new THREE.Mesh(pillarGeo, girderMat);
-      pillar.position.set(x, 7, z);
+      pillar.position.set(x, 8, z);
       pillar.castShadow = true;
       pillar.receiveShadow = true;
       scene.add(pillar);
@@ -246,9 +261,9 @@ export class FactoryArenaBuilder {
     const steamClouds: THREE.Mesh[] = [];
     const smokeGeo = new THREE.SphereGeometry(1.6, 12, 12);
     const smokeMat = new THREE.MeshBasicMaterial({
-      color: 0x64748b,
+      color: 0x94a3b8,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.15,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });

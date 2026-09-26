@@ -242,6 +242,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
           <div className="flex items-center gap-2 bg-slate-950/85 backdrop-blur-md border border-cyan-500/40 px-4 py-1.5 rounded-xl text-[10px] font-mono text-slate-300 shadow-xl">
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">WASD</span> Move</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">LMB</span> Shoot</div>
+            <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">R</span> Reload</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">RMB</span> Hack</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">E</span> Pilot Mech</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">Shift</span> Dash/Shield</div>
@@ -273,12 +274,17 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
 
             <div className="h-10 w-px bg-slate-800" />
 
-            {/* Ammo Counter */}
+            {/* Ammo Counter with Reload Key Hint */}
             <div className="text-center font-mono">
-              <span className="text-[10px] text-slate-400 block tracking-wider">AMMO</span>
-              <div className="text-2xl font-black text-white">
+              <span className="text-[10px] text-slate-400 block tracking-wider">AMMO [R]</span>
+              <div className={`text-2xl font-black ${stats.ammo <= 10 ? 'text-amber-400 animate-pulse' : 'text-white'}`}>
                 {stats.ammo}<span className="text-xs text-slate-500">/{stats.maxAmmo}</span>
               </div>
+              {stats.ammo <= 10 && (
+                <span className="text-[9px] text-amber-400 block font-bold tracking-tight">
+                  RELOAD [R]
+                </span>
+              )}
             </div>
           </div>
         </div>

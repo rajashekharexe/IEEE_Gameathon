@@ -55,8 +55,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     health: 100,
     energy: 100,
     thermalStability: 100,
-    ammo: 24,
-    maxAmmo: 60,
+    ammo: 50,
+    maxAmmo: 50,
     score: 0,
     wave: 1,
     hackProgress: 0,
@@ -90,10 +90,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     const s = stateRef.current;
 
-    // 1. SCENE SETUP
+    // 1. SCENE SETUP (Clean, Vibrant, High-Tech Futuristic Light Theme)
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060a14);
-    scene.fog = new THREE.FogExp2(0x060a14, 0.016);
+    scene.background = new THREE.Color(0xf1f5f9);
+    scene.fog = new THREE.FogExp2(0xe2e8f0, 0.009);
 
     // 2. CAMERA, SCREEN SHAKE & VFX (Cinematic Over-The-Shoulder Camera)
     const camera = new THREE.PerspectiveCamera(
@@ -115,51 +115,51 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // 4. LIGHTING (Vibrant, high-contrast, luminous sci-fi foundry)
-    const ambientLight = new THREE.AmbientLight(0x1e293b, 2.4);
+    // 4. LIGHTING (Crisp high-visibility studio daylight with vibrant cyber accents)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.6);
     scene.add(ambientLight);
 
-    // Main overhead cyber floodlight
-    const dirLight = new THREE.DirectionalLight(0x7dd3fc, 3.8);
-    dirLight.position.set(20, 32, 16);
+    // Main overhead cyber daylight floodlight
+    const dirLight = new THREE.DirectionalLight(0xffffff, 3.4);
+    dirLight.position.set(24, 38, 20);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
 
-    // Warm Industrial Furnace Rim Light
-    const rimLight = new THREE.DirectionalLight(0xf59e0b, 2.8);
-    rimLight.position.set(-16, 22, -26);
+    // Vibrant Sky-Blue Cyber Rim Light
+    const rimLight = new THREE.DirectionalLight(0xbae6fd, 2.2);
+    rimLight.position.set(-20, 26, -30);
     scene.add(rimLight);
 
-    // Floor neon upward bounce
-    const floorLight = new THREE.PointLight(0x00f0ff, 3.2, 45, 1.4);
-    floorLight.position.set(0, 2.5, 0);
+    // Floor upward electric cyan bounce
+    const floorLight = new THREE.PointLight(0x0ea5e9, 2.4, 65, 1.2);
+    floorLight.position.set(0, 3.0, 0);
     scene.add(floorLight);
 
     // 5. BUILD FACTORY ARENA
     const arena = factoryArena.build(scene);
 
-    // 6. SPAWN EVACUATION AIRLOCK WITH VOLUMETRIC HOLOGRAPHIC BEACON
+    // 6. SPAWN EVACUATION AIRLOCK WITH VOLUMETRIC HOLOGRAPHIC BEACON (Expanded to 48m runway)
     const airlock = entityFactory.createEvacuationAirlock();
-    airlock.position.set(0, 0, 24);
+    airlock.position.set(0, 0, 48);
     scene.add(airlock);
 
-    const airlockLight = new THREE.PointLight(0x10b981, 4.5, 26, 1.2);
-    airlockLight.position.set(0, 4, 24);
+    const airlockLight = new THREE.PointLight(0x10b981, 4.5, 30, 1.2);
+    airlockLight.position.set(0, 4, 48);
     scene.add(airlockLight);
 
     // Luminous emerald beam rising from the airlock into the ceiling
-    const beaconGeo = new THREE.CylinderGeometry(2.2, 2.2, 16, 24, 1, true);
+    const beaconGeo = new THREE.CylinderGeometry(2.4, 2.4, 18, 24, 1, true);
     const beaconMat = new THREE.MeshBasicMaterial({
       color: 0x10b981,
       transparent: true,
-      opacity: 0.32,
+      opacity: 0.35,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
     const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
-    beaconMesh.position.set(0, 8, 24);
+    beaconMesh.position.set(0, 9, 48);
     scene.add(beaconMesh);
 
     // 7. SPAWN UNIT-7 (PLAYER) - Positioned on catwalk facing forward
@@ -174,16 +174,16 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     titan.group.rotation.y = Math.PI - 0.35;
     scene.add(titan.group);
 
-    // 9. SPAWN TRAPPED SCIENTISTS - Right side behind crates
+    // 9. SPAWN TRAPPED SCIENTISTS - Positioned tactically in the facility
     const scientists: ScientistEntity[] = [
       entityFactory.createScientist(),
       entityFactory.createScientist(),
     ];
-    scientists[0].group.position.set(9.5, 0, 7.5);
-    scientists[1].group.position.set(13.2, 0, 7.5);
+    scientists[0].group.position.set(18, 0, 12);
+    scientists[1].group.position.set(-22, 0, 18);
     scientists.forEach((sc) => scene.add(sc.group));
 
-    // 10. SPAWN SCOUT ENEMY BOTS
+    // 10. SPAWN SCOUT ENEMY BOTS (6 hostile scouts spread across 160m warzone)
     interface ActiveScout {
       group: THREE.Group;
       eye: THREE.Mesh;
@@ -194,10 +194,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     }
     const scouts: ActiveScout[] = [];
     const scoutSpawnPoints = [
-      new THREE.Vector3(-24, 0, -20),
-      new THREE.Vector3(24, 0, -20),
-      new THREE.Vector3(-24, 0, 10),
-      new THREE.Vector3(24, 0, 10),
+      new THREE.Vector3(-36, 0, -26),
+      new THREE.Vector3(36, 0, -26),
+      new THREE.Vector3(-40, 0, 16),
+      new THREE.Vector3(40, 0, 16),
+      new THREE.Vector3(-18, 0, -42),
+      new THREE.Vector3(18, 0, -42),
     ];
 
     scoutSpawnPoints.forEach((pos) => {
@@ -209,7 +211,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     // 11. CORE-X BOSS ENTITY (Instantiated ready for Wave 2)
     const boss: BossCoreXEntity = bossFactory.createCoreX();
-    boss.group.position.set(0, 0, -18);
+    boss.group.position.set(0, 0, -28);
 
     // Boss Stomp Shockwave Ring
     const shockwaveGeo = new THREE.RingGeometry(0.5, 1.2, 32);
@@ -221,7 +223,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       opacity: 0,
     });
     const shockwaveMesh = new THREE.Mesh(shockwaveGeo, shockwaveMat);
-    shockwaveMesh.position.set(0, 0.1, -18);
+    shockwaveMesh.position.set(0, 0.1, -28);
     scene.add(shockwaveMesh);
 
     let shockwaveActive = false;
@@ -268,6 +270,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     let invulnTimer = 0;
     let timeSinceLastDamage = 0;
     let regenSparkTimer = 0;
+    let isReloading = false;
+    let reloadTimer = 0;
 
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -439,9 +443,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       }
 
-      // Clamp within boundaries
-      activeObj.position.x = Math.max(-36, Math.min(36, activeObj.position.x));
-      activeObj.position.z = Math.max(-36, Math.min(36, activeObj.position.z));
+      // Clamp within boundaries (160m facility bounds)
+      activeObj.position.x = Math.max(-70, Math.min(70, activeObj.position.x));
+      activeObj.position.z = Math.max(-70, Math.min(70, activeObj.position.z));
 
       // E. BODY-SWAPPING (EMBODY TITAN)
       if (swapCooldown > 0) swapCooldown -= delta;
@@ -522,23 +526,53 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         titan.aegisShield.visible = false;
       }
 
-      // H. SHOOTING
+      // H. SHOOTING & RELOADING [R]
       if (shootCooldown > 0) shootCooldown -= delta;
-      if (input.isActionPressed('fire') && shootCooldown <= 0) {
-        if (s.activeChassis === 'UNIT7' && s.ammo > 0) {
-          shootCooldown = 0.22;
-          s.ammo--;
-          sounds.playShoot(900);
-          screenShake.addTrauma(0.04);
-          vfx.emitSparks(unit7.weaponMuzzle, 4, 0x00f0ff, 4);
 
-          const projMesh = new THREE.Mesh(projGeo, playerProjMat);
-          projMesh.position.copy(unit7.weaponMuzzle);
-          const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle).normalize();
-          shootDir.y = 0;
-          projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
-          scene.add(projMesh);
-          projectiles.push({ mesh: projMesh, dir: shootDir, life: 1.5 });
+      // Manual Reload Trigger on [R]
+      if (input.isActionPressed('reload') && s.activeChassis === 'UNIT7' && s.ammo < s.maxAmmo && !isReloading) {
+        isReloading = true;
+        reloadTimer = 0.9;
+        sounds.playReload();
+        vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'RELOADING...', '#38bdf8', 18);
+      }
+
+      // Reload Progression
+      if (isReloading) {
+        reloadTimer -= delta;
+        if (reloadTimer <= 0) {
+          s.ammo = s.maxAmmo;
+          isReloading = false;
+          vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'AMMO REFILLED (50/50)', '#10b981', 18);
+        }
+      }
+
+      // Firing Controls
+      if (input.isActionPressed('fire') && shootCooldown <= 0) {
+        if (s.activeChassis === 'UNIT7') {
+          if (isReloading) {
+            // Can't shoot while reload in progress
+          } else if (s.ammo <= 0) {
+            // Auto-trigger reload on dry fire
+            isReloading = true;
+            reloadTimer = 0.9;
+            sounds.playReload();
+            vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'NO AMMO // RELOADING [R]', '#ef4444', 18);
+          } else {
+            shootCooldown = 0.18;
+            s.ammo--;
+            sounds.playShoot(900);
+            screenShake.addTrauma(0.04);
+            vfx.emitSparks(unit7.weaponMuzzle, 4, 0x00f0ff, 4);
+
+            const projMesh = new THREE.Mesh(projGeo, playerProjMat);
+            projMesh.position.copy(unit7.weaponMuzzle);
+            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle).normalize();
+            shootDir.y = 0;
+            projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
+            scene.add(projMesh);
+            projectiles.push({ mesh: projMesh, dir: shootDir, life: 1.5 });
+          }
         } else if (s.activeChassis === 'TITAN') {
           // TITAN HYDRAULIC SLAM CANNON
           shootCooldown = 0.45;
@@ -725,19 +759,22 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         if (!p.isEnemy) {
           for (let j = scouts.length - 1; j >= 0; j--) {
             const sc = scouts[j];
-            if (p.mesh.position.distanceTo(sc.group.position) < (p.isTitanShot ? 2.5 : 1.2)) {
+            const dx = p.mesh.position.x - sc.group.position.x;
+            const dz = p.mesh.position.z - sc.group.position.z;
+            const distXZ = Math.hypot(dx, dz);
+            if (distXZ < (p.isTitanShot ? 3.4 : 2.2)) {
               sounds.playHit();
-              const dmg = p.isTitanShot ? 50 : 25;
+              const dmg = p.isTitanShot ? 80 : 50;
               sc.hp -= dmg;
               vfx.emitSparks(p.mesh.position, p.isTitanShot ? 26 : 14, 0x00f0ff, p.isTitanShot ? 10 : 6);
-              vfx.emitText(sc.group.position, p.isTitanShot ? '-50 CRIT' : '-25', '#38bdf8', 16, p.isTitanShot);
+              vfx.emitText(sc.group.position, p.isTitanShot ? '-80 CRIT' : '-50', '#38bdf8', 16, p.isTitanShot);
 
               scene.remove(p.mesh);
               projectiles.splice(i, 1);
 
               if (sc.hp <= 0) {
                 sounds.playExplosion('small');
-                vfx.emitSparks(sc.group.position, 35, 0xff0044, 12, true);
+                vfx.emitSparks(sc.group.position, 40, 0xff0044, 12, true);
                 vfx.emitText(sc.group.position, '+250 DESTROYED', '#10b981', 18);
                 scene.remove(sc.group);
                 scouts.splice(j, 1);
@@ -916,7 +953,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         // 1. Evacuation Airlock Waypoint
         const distToAirlock = activeObj.position.distanceTo(airlock.position);
         waypoints.push({
-          pos: new THREE.Vector3(0, 3.2, 24),
+          pos: new THREE.Vector3(0, 3.2, 48),
           label: 'EVACUATION AIRLOCK',
           sublabel: `AIRLOCK PAD (${Math.round(distToAirlock)}m)`,
           color: '#10b981',
@@ -980,6 +1017,20 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             dist: distBoss,
           });
         }
+
+        // 5. Hostile Scout Enemy Waypoints (Who to fire at!)
+        scouts.forEach((sc, idx) => {
+          const distScout = activeObj.position.distanceTo(sc.group.position);
+          if (distScout < 55) {
+            waypoints.push({
+              pos: sc.group.position.clone().add(new THREE.Vector3(0, 2.2, 0)),
+              label: `HOSTILE SCOUT #${idx + 1}`,
+              sublabel: `AIM & SHOOT [LMB] (${Math.round(distScout)}m)`,
+              color: '#ef4444',
+              dist: distScout,
+            });
+          }
+        });
 
         vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, waypoints);
       }

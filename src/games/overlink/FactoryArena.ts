@@ -1,212 +1,197 @@
-// High-Fidelity 3D Industrial Foundry Arena for Circuit Breaker: Overlink
-// Features Catwalk, Yellow Safety Railings, Overhead Gantry Cranes, Volumetric Steam & Hazard Crates
+// Dark Futuristic Robot-Revolt City Environment for Circuit Breaker: Overlink
+// Features: Destroyed buildings, asphalt roads, broken vehicles, metal barriers,
+// containers, robot wreckage, power generators, neon signs, smoke, fire, and sparks.
 import * as THREE from 'three';
+
+export interface PowerGeneratorEntity {
+  group: THREE.Group;
+  hp: number;
+  maxHp: number;
+  isDestroyed: boolean;
+  coreMesh: THREE.Mesh;
+  coreLight: THREE.PointLight;
+  position: THREE.Vector3;
+}
 
 export interface ArenaComponents {
   floor: THREE.Mesh;
   catwalk: THREE.Group;
   pillars: THREE.Mesh[];
   crates: THREE.Group[];
+  generators: PowerGeneratorEntity[];
   sirens: { light: THREE.PointLight; mesh: THREE.Mesh; baseAngle: number }[];
   steamClouds: THREE.Mesh[];
+  fireLights: THREE.PointLight[];
   updateSirens: (time: number) => void;
 }
 
 export class FactoryArenaBuilder {
-  // Generate procedural reflective metallic floor texture with vibrant glowing cyan circuit traces
-  private createCircuitFloorTexture(): THREE.CanvasTexture {
+  // Generate procedural dark futuristic asphalt road texture with wet cyber sheen & neon markings
+  private createDarkCityFloorTexture(): THREE.CanvasTexture {
     const size = 1024;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Clean High-Tech Porcelain Titanium Ceramic Base (Crisp, Aesthetic Light Theme)
-    ctx.fillStyle = '#e2e8f0';
+    // 1. Dark asphalt base (Deep midnight slate)
+    ctx.fillStyle = '#080d1a';
     ctx.fillRect(0, 0, size, size);
 
-    // Industrial grid tiles with crisp slate seams
-    const tileSize = 128;
-    ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
-    ctx.lineWidth = 2;
-    for (let x = 0; x < size; x += tileSize) {
-      for (let y = 0; y < size; y += tileSize) {
-        ctx.strokeRect(x, y, tileSize, tileSize);
-        // Corner tech accents
-        ctx.fillStyle = '#0284c7';
-        ctx.fillRect(x + 4, y + 4, 3, 3);
-        ctx.fillRect(x + tileSize - 7, y + 4, 3, 3);
-        ctx.fillRect(x + 4, y + tileSize - 7, 3, 3);
-        ctx.fillRect(x + tileSize - 7, y + tileSize - 7, 3, 3);
-      }
+    // Subtle asphalt noise / road grit
+    ctx.fillStyle = '#0f172a';
+    for (let i = 0; i < 400; i++) {
+      const rx = Math.random() * size;
+      const ry = Math.random() * size;
+      ctx.fillRect(rx, ry, Math.random() * 4 + 1, Math.random() * 4 + 1);
     }
 
-    // Glowing vibrant electric cyan/blue circuit tracks
-    ctx.strokeStyle = '#0284c7';
-    ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 14;
+    // 2. City Road Grid & Lane Dividers
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.8)';
     ctx.lineWidth = 4;
-
-    const drawCircuitPath = (points: [number, number][]) => {
+    const blockSize = 256;
+    for (let x = 0; x < size; x += blockSize) {
       ctx.beginPath();
-      ctx.moveTo(points[0][0], points[0][1]);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i][0], points[i][1]);
-      }
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, size);
       ctx.stroke();
 
-      const last = points[points.length - 1];
+      ctx.beginPath();
+      ctx.moveTo(0, x);
+      ctx.lineTo(size, x);
+      ctx.stroke();
+    }
+
+    // Yellow Dashed Highway / Road Median Lines
+    ctx.strokeStyle = '#eab308';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([24, 16]);
+    // Main avenue horizontal and vertical center
+    ctx.beginPath();
+    ctx.moveTo(0, size / 2);
+    ctx.lineTo(size, size / 2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(size / 2, 0);
+    ctx.lineTo(size / 2, size);
+    ctx.stroke();
+    ctx.setLineDash([]); // reset
+
+    // 3. Glowing Cyan Circuit Veins & Data Conduits (Embedded in road trenches)
+    ctx.strokeStyle = '#0284c7';
+    ctx.shadowColor = '#00f0ff';
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 3;
+
+    const drawCircuit = (pts: [number, number][]) => {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.stroke();
+
+      const last = pts[pts.length - 1];
       ctx.fillStyle = '#00f0ff';
       ctx.beginPath();
-      ctx.arc(last[0], last[1], 7, 0, Math.PI * 2);
+      ctx.arc(last[0], last[1], 5, 0, Math.PI * 2);
       ctx.fill();
     };
 
-    // Interconnected cyber circuit grid across factory floor
-    drawCircuitPath([[64, 128], [256, 128], [384, 256], [384, 512]]);
-    drawCircuitPath([[512, 64], [512, 384], [640, 512], [896, 512]]);
-    drawCircuitPath([[128, 640], [384, 640], [512, 768], [800, 768]]);
-    drawCircuitPath([[768, 256], [896, 256], [960, 320], [960, 640]]);
-    drawCircuitPath([[256, 512], [256, 768], [384, 896]]);
-    drawCircuitPath([[640, 256], [768, 128], [896, 128]]);
+    drawCircuit([[64, 64], [192, 64], [192, 192], [320, 192]]);
+    drawCircuit([[700, 100], [850, 100], [850, 300]]);
+    drawCircuit([[100, 700], [250, 700], [350, 850]]);
+    drawCircuit([[700, 700], [850, 700], [850, 900]]);
 
-    // Hazard caution borders around edges
+    // 4. Stenciled City Road Markings & Sector Numbers
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.font = '900 22px monospace';
+    ctx.fillText('SECTOR 07 // EVAC ROUTE →', 60, size / 2 - 20);
+    ctx.fillText('OMNICORP FOUNDRY DEFENSE', size / 2 + 30, size / 2 - 20);
+    ctx.fillText('RESTRICTED: MACHINE CONTROL', 60, size / 2 + 40);
+
+    // Hazard Stripes on City Borders
     ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(0, 0, size, 12);
-    ctx.fillRect(0, size - 12, size, 12);
-    ctx.fillRect(0, 0, 12, size);
-    ctx.fillRect(size - 12, 0, 12, size);
+    ctx.fillRect(0, 0, size, 14);
+    ctx.fillRect(0, size - 14, size, 14);
+    ctx.fillRect(0, 0, 14, size);
+    ctx.fillRect(size - 14, 0, 14, size);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(8, 8);
+    texture.repeat.set(6, 6);
     return texture;
   }
 
-  // High-Detail Procedural Sci-Fi Military Cargo Crate Texture
+  // Create High-Tech Military Cargo Crate Texture
   private createSciFiCrateTexture(isAmmo: boolean): THREE.CanvasTexture {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 512;
     const ctx = canvas.getContext('2d')!;
 
-    // 1. Dark Brushed Metal Armor Base
-    ctx.fillStyle = isAmmo ? '#18202c' : '#1e293b';
+    ctx.fillStyle = isAmmo ? '#0c1424' : '#141d2e';
     ctx.fillRect(0, 0, 512, 512);
 
-    // 2. Corrugated / Ribbed Steel Inset Panel
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(32, 48, 448, 416);
+    ctx.fillStyle = '#060a12';
+    ctx.fillRect(28, 40, 456, 432);
 
-    // Subtle brushed metal grooves
-    ctx.strokeStyle = '#334155';
+    ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 3;
-    for (let y = 64; y < 450; y += 24) {
+    for (let y = 60; y < 460; y += 28) {
       ctx.beginPath();
-      ctx.moveTo(40, y);
-      ctx.lineTo(472, y);
+      ctx.moveTo(36, y);
+      ctx.lineTo(476, y);
       ctx.stroke();
     }
 
-    // 3. Diagonal Hazard Caution Borders (Top & Bottom Bands)
-    const drawHazardBand = (yPos: number) => {
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, yPos, 512, 28);
-      ctx.fillStyle = '#f59e0b';
-      for (let x = -28; x < 540; x += 36) {
-        ctx.beginPath();
-        ctx.moveTo(x, yPos + 28);
-        ctx.lineTo(x + 18, yPos + 28);
-        ctx.lineTo(x + 36, yPos);
-        ctx.lineTo(x + 18, yPos);
-        ctx.closePath();
-        ctx.fill();
-      }
-    };
-    drawHazardBand(10);
-    drawHazardBand(474);
+    // Hazard strip
+    ctx.fillStyle = '#f59e0b';
+    for (let x = -20; x < 540; x += 36) {
+      ctx.beginPath();
+      ctx.moveTo(x, 24);
+      ctx.lineTo(x + 18, 24);
+      ctx.lineTo(x, 0);
+      ctx.lineTo(x - 18, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
 
-    // 4. Military Stencil Graphics & Cargo Decals
     ctx.fillStyle = '#38bdf8';
     ctx.font = '900 24px monospace';
-    ctx.fillText(isAmmo ? 'MK-IV ORDNANCE // SEC-9' : 'OVERLINK HEAVY LOGISTICS', 48, 120);
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '700 16px monospace';
-    ctx.fillText(isAmmo ? 'AP 12.7mm ARMOR PIERCING' : 'CLASSIFIED HYDRAULIC CELLS', 48, 150);
-    ctx.fillText('HAZARD CLASS 4 // AUTONOMOUS', 48, 175);
-
-    // Center Warning Stencil Icon
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(360, 95, 90, 90);
-    ctx.fillStyle = '#f59e0b';
-    ctx.font = '900 42px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('!', 405, 158);
-    ctx.textAlign = 'left';
-
-    // 5. Digital Barcode & Data Matrix Tag
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(48, 380, 180, 50);
-    ctx.fillStyle = '#0f172a';
-    for (let bx = 56; bx < 220; bx += 8) {
-      const barW = bx % 16 === 0 ? 5 : 2;
-      ctx.fillRect(bx, 386, barW, 38);
-    }
-
-    // 6. Corner Heavy Rivets
+    ctx.fillText(isAmmo ? 'MK-IV ORDNANCE // SEC-7' : 'OMNICORP CARGO CONTAINER', 40, 110);
     ctx.fillStyle = '#64748b';
-    [
-      [20, 20],
-      [492, 20],
-      [20, 492],
-      [492, 492],
-      [20, 256],
-      [492, 256],
-    ].forEach(([rx, ry]) => {
-      ctx.beginPath();
-      ctx.arc(rx, ry, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#090d16';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    });
+    ctx.font = '700 16px monospace';
+    ctx.fillText('HAZARD CLASS 4 // AUTONOMOUS', 40, 145);
 
     const texture = new THREE.CanvasTexture(canvas);
     return texture;
   }
 
-  // Build the complete factory arena
+  // Build the complete futuristic robot-revolt city arena
   public build(scene: THREE.Scene): ArenaComponents {
-    // 1. Reflective Metallic Floor (160m x 160m Expansive Industrial Warzone)
-    const floorGeo = new THREE.PlaneGeometry(160, 160);
-    const floorTexture = this.createCircuitFloorTexture();
+    // 1. Dark Asphalt City Warzone Floor (180m x 180m)
+    const floorGeo = new THREE.PlaneGeometry(180, 180);
+    const floorTexture = this.createDarkCityFloorTexture();
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTexture,
-      roughness: 0.22,
-      metalness: 0.58,
+      roughness: 0.35,
+      metalness: 0.65,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // 2. Industrial Yellow Safety Catwalk (Flush diamond plate base)
+    // 2. Catwalk Platform Zone where Player Deploys
     const catwalk = new THREE.Group();
     const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x475569,
-      roughness: 0.35,
-      metalness: 0.75,
-    });
-    const yellowRailMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b, // Industrial OSHA yellow
+      color: 0x1e293b,
       roughness: 0.4,
-      metalness: 0.5,
+      metalness: 0.8,
     });
 
-    // Catwalk Platform Base (Flush Diamond-Plate floor zone where Unit-7 begins)
     const platGeo = new THREE.BoxGeometry(16, 0.05, 10);
     const platform = new THREE.Mesh(platGeo, steelMat);
     platform.position.set(-6, 0.02, 5);
@@ -214,7 +199,270 @@ export class FactoryArenaBuilder {
     catwalk.add(platform);
     scene.add(catwalk);
 
-    // 3. Heavy Industrial Cover Crates (High-detail sci-fi military freight modules)
+    // 3. Destroyed Futuristic Skyscrapers & Urban Ruins (Perimeter)
+    const bldgMat = new THREE.MeshStandardMaterial({
+      color: 0x090f1d,
+      roughness: 0.6,
+      metalness: 0.5,
+    });
+    const rebarMat = new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      roughness: 0.3,
+      metalness: 0.85,
+    });
+    const windowMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+    const brokenWindowMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e });
+
+    const buildingConfigs: { x: number; z: number; w: number; h: number; d: number; destroyed?: boolean }[] = [
+      // North skyline (Behind Boss arena)
+      { x: -50, z: -70, w: 26, h: 48, d: 24, destroyed: true },
+      { x: -15, z: -75, w: 32, h: 62, d: 26 },
+      { x: 25, z: -72, w: 28, h: 54, d: 24, destroyed: true },
+      { x: 60, z: -68, w: 24, h: 42, d: 22 },
+      // South skyline (Behind player start)
+      { x: -45, z: 70, w: 28, h: 44, d: 22 },
+      { x: 0, z: 75, w: 34, h: 58, d: 26, destroyed: true },
+      { x: 45, z: 70, w: 26, h: 46, d: 22 },
+      // West skyline
+      { x: -75, z: -35, w: 24, h: 50, d: 28, destroyed: true },
+      { x: -72, z: 5, w: 22, h: 64, d: 32 },
+      { x: -74, z: 40, w: 24, h: 42, d: 26, destroyed: true },
+      // East skyline
+      { x: 74, z: -35, w: 24, h: 52, d: 26 },
+      { x: 72, z: 5, w: 24, h: 66, d: 30, destroyed: true },
+      { x: 75, z: 40, w: 22, h: 45, d: 24 },
+    ];
+
+    buildingConfigs.forEach((cfg) => {
+      const bldgGroup = new THREE.Group();
+      bldgGroup.position.set(cfg.x, cfg.h / 2, cfg.z);
+
+      const mainMesh = new THREE.Mesh(new THREE.BoxGeometry(cfg.w, cfg.h, cfg.d), bldgMat);
+      mainMesh.castShadow = true;
+      mainMesh.receiveShadow = true;
+      bldgGroup.add(mainMesh);
+
+      // Lit windows rows on facades
+      const windowRows = Math.floor(cfg.h / 5);
+      for (let r = 1; r < windowRows - 1; r++) {
+        const winY = -cfg.h / 2 + r * 5;
+        const isFlickerRed = cfg.destroyed && r % 3 === 0;
+        const winStrip = new THREE.Mesh(
+          new THREE.BoxGeometry(cfg.w * 0.75, 1.2, cfg.d + 0.1),
+          isFlickerRed ? brokenWindowMat : windowMat
+        );
+        winStrip.position.y = winY;
+        bldgGroup.add(winStrip);
+      }
+
+      // If destroyed: add jagged concrete fracture and exposed steel rebars
+      if (cfg.destroyed) {
+        const rubble = new THREE.Mesh(new THREE.BoxGeometry(cfg.w * 0.6, 6, cfg.d * 0.5), bldgMat);
+        rubble.position.set(cfg.w * 0.2, cfg.h / 2 + 2, 0);
+        rubble.rotation.set(0.15, 0.2, -0.3);
+        bldgGroup.add(rubble);
+
+        for (let reb = 0; reb < 5; reb++) {
+          const rebar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 5, 6), rebarMat);
+          rebar.position.set((reb - 2) * 1.5, cfg.h / 2 + 2.5, 0);
+          rebar.rotation.set((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.7);
+          bldgGroup.add(rebar);
+        }
+      }
+
+      scene.add(bldgGroup);
+    });
+
+    // 4. Glowing Holographic Neon Billboard Signs on Roofs
+    const createNeonSign = (text: string, colorHex: number, x: number, y: number, z: number, rotY: number) => {
+      const signCanvas = document.createElement('canvas');
+      signCanvas.width = 512;
+      signCanvas.height = 128;
+      const sctx = signCanvas.getContext('2d')!;
+      sctx.fillStyle = '#050a14';
+      sctx.fillRect(0, 0, 512, 128);
+      sctx.strokeStyle = '#' + colorHex.toString(16).padStart(6, '0');
+      sctx.lineWidth = 6;
+      sctx.strokeRect(8, 8, 496, 112);
+      sctx.fillStyle = '#' + colorHex.toString(16).padStart(6, '0');
+      sctx.shadowColor = '#' + colorHex.toString(16).padStart(6, '0');
+      sctx.shadowBlur = 18;
+      sctx.font = '900 36px monospace';
+      sctx.textAlign = 'center';
+      sctx.fillText(text, 256, 75);
+
+      const signTex = new THREE.CanvasTexture(signCanvas);
+      const signMat = new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide });
+      const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 4), signMat);
+      signMesh.position.set(x, y, z);
+      signMesh.rotation.y = rotY;
+      scene.add(signMesh);
+    };
+
+    createNeonSign('RE:VOLT — OVERRIDE PROTOCOL', 0x00f0ff, 0, 24, -62, 0);
+    createNeonSign('OMNICORP FOUNDRY SEC-07', 0xf43f5e, -50, 26, -58, 0.4);
+    createNeonSign('WARNING: ANOMALOUS DROID THREAT', 0xf59e0b, 50, 25, -56, -0.4);
+    createNeonSign('EVACUATION CORRIDOR // SOUTH', 0x10b981, 0, 18, 62, Math.PI);
+
+    // 5. Broken Vehicles (Wrecked armored patrol cruisers & burning transport pods)
+    const vehicleMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.35,
+      metalness: 0.85,
+    });
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.1,
+      metalness: 0.9,
+    });
+    const wheelMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0e17,
+      roughness: 0.9,
+    });
+
+    const fireLights: THREE.PointLight[] = [];
+
+    const createBrokenVehicle = (x: number, z: number, rotY: number, hasFire: boolean) => {
+      const vGroup = new THREE.Group();
+      vGroup.position.set(x, 0, z);
+      vGroup.rotation.y = rotY;
+
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 5.8), vehicleMat);
+      chassis.position.y = 0.9;
+      chassis.castShadow = true;
+      vGroup.add(chassis);
+
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.0, 3.2), glassMat);
+      cabin.position.set(0, 1.8, -0.4);
+      cabin.rotation.z = 0.08;
+      vGroup.add(cabin);
+
+      [
+        [-1.6, 0.5, 1.8],
+        [1.6, 0.5, 1.8],
+        [-1.6, 0.5, -1.8],
+        [1.6, 0.5, -1.8],
+      ].forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 12), wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx, wy, wz);
+        vGroup.add(wheel);
+      });
+
+      if (hasFire) {
+        const fireLight = new THREE.PointLight(0xff5500, 3.5, 14);
+        fireLight.position.set(0, 1.8, 1.6);
+        vGroup.add(fireLight);
+        fireLights.push(fireLight);
+
+        const flameMat = new THREE.MeshBasicMaterial({ color: 0xff4400, wireframe: true });
+        const flame = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.8, 6), flameMat);
+        flame.position.set(0, 2.0, 1.6);
+        vGroup.add(flame);
+      }
+
+      scene.add(vGroup);
+    };
+
+    createBrokenVehicle(-22, -12, 0.5, true);
+    createBrokenVehicle(20, -18, -0.8, true);
+    createBrokenVehicle(-28, 22, 1.2, false);
+    createBrokenVehicle(26, 20, -0.3, true);
+    createBrokenVehicle(-8, -32, 0.2, false);
+
+    // 6. Metal Barricades & Road Blockades
+    const barrierMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.4,
+      metalness: 0.8,
+    });
+    const stripeMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      roughness: 0.4,
+    });
+
+    const createMetalBarrier = (x: number, z: number, rotY: number) => {
+      const bGroup = new THREE.Group();
+      bGroup.position.set(x, 0, z);
+      bGroup.rotation.y = rotY;
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.2, 0.8), barrierMat);
+      base.position.y = 0.6;
+      base.castShadow = true;
+      bGroup.add(base);
+
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(4.55, 0.35, 0.82), stripeMat);
+      stripe.position.y = 0.6;
+      bGroup.add(stripe);
+
+      scene.add(bGroup);
+    };
+
+    createMetalBarrier(-14, 14, 0.2);
+    createMetalBarrier(14, 14, -0.2);
+    createMetalBarrier(-18, -24, 0.6);
+    createMetalBarrier(18, -24, -0.6);
+
+    // 7. Power Generators (3 Units for Level 2 Objective: DESTROY 3 GENERATORS)
+    const generators: PowerGeneratorEntity[] = [];
+    const genMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.3,
+      metalness: 0.85,
+    });
+    const genCoreMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const genHazardMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b });
+
+    const createPowerGenerator = (x: number, z: number): PowerGeneratorEntity => {
+      const genGroup = new THREE.Group();
+      genGroup.position.set(x, 0, z);
+
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.8, 1.8, 16), genMat);
+      base.position.y = 0.9;
+      base.castShadow = true;
+      base.receiveShadow = true;
+      genGroup.add(base);
+
+      const core = new THREE.Mesh(new THREE.SphereGeometry(1.3, 16, 16), genCoreMat);
+      core.position.y = 2.6;
+      genGroup.add(core);
+
+      const ringGeo = new THREE.TorusGeometry(1.8, 0.18, 8, 24);
+      const ring1 = new THREE.Mesh(ringGeo, genHazardMat);
+      ring1.position.y = 2.6;
+      ring1.rotation.x = Math.PI / 2;
+      genGroup.add(ring1);
+
+      const ring2 = new THREE.Mesh(ringGeo, genMat);
+      ring2.position.y = 2.6;
+      genGroup.add(ring2);
+
+      const chimney = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 1.6, 12), genMat);
+      chimney.position.y = 4.2;
+      genGroup.add(chimney);
+
+      const coreLight = new THREE.PointLight(0x00f0ff, 4.0, 18);
+      coreLight.position.y = 2.6;
+      genGroup.add(coreLight);
+
+      scene.add(genGroup);
+
+      return {
+        group: genGroup,
+        hp: 150,
+        maxHp: 150,
+        isDestroyed: false,
+        coreMesh: core,
+        coreLight,
+        position: new THREE.Vector3(x, 2.0, z),
+      };
+    };
+
+    generators.push(createPowerGenerator(-28, -2)); // West Generator
+    generators.push(createPowerGenerator(28, -2));  // East Generator
+    generators.push(createPowerGenerator(0, -38));  // Central Core Generator
+
+    // 8. Heavy Industrial Cover Crates
     const crates: THREE.Group[] = [];
     const ammoTexture = this.createSciFiCrateTexture(true);
     const cargoTexture = this.createSciFiCrateTexture(false);
@@ -229,112 +477,26 @@ export class FactoryArenaBuilder {
       metalness: 0.85,
       roughness: 0.28,
     });
-    const darkFrameMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      metalness: 0.9,
-      roughness: 0.2,
-    });
-    const chromeHandleMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
-      metalness: 0.95,
-      roughness: 0.15,
-    });
-    const cyanLedMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-    const emeraldLedMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
 
     const createIndustrialCrate = (w: number, h: number, d: number, index: number) => {
       const cGroup = new THREE.Group();
       const isAmmo = index % 2 === 0;
-
-      // 1. Main Textured Armor Box
       const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), isAmmo ? ammoMat : cargoMat);
       box.castShadow = true;
       box.receiveShadow = true;
       cGroup.add(box);
-
-      // 2. Heavy Perimeter Edge Armor Framing (Dark Titanium)
-      const topFrame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, 0.14, d + 0.08), darkFrameMat);
-      topFrame.position.y = h / 2;
-      topFrame.castShadow = true;
-      cGroup.add(topFrame);
-
-      const bottomFrame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, 0.14, d + 0.08), darkFrameMat);
-      bottomFrame.position.y = -h / 2;
-      bottomFrame.castShadow = true;
-      cGroup.add(bottomFrame);
-
-      // 3. Stacking Alignment Cleats on Top Four Corners
-      const cleatGeo = new THREE.BoxGeometry(0.35, 0.15, 0.35);
-      [
-        [w / 2 - 0.2, d / 2 - 0.2],
-        [-w / 2 + 0.2, d / 2 - 0.2],
-        [w / 2 - 0.2, -d / 2 + 0.2],
-        [-w / 2 + 0.2, -d / 2 + 0.2],
-      ].forEach(([cx, cz]) => {
-        const cleat = new THREE.Mesh(cleatGeo, darkFrameMat);
-        cleat.position.set(cx, h / 2 + 0.08, cz);
-        cleat.castShadow = true;
-        cGroup.add(cleat);
-      });
-
-      // 4. Yellow OSHA Hazard Corner Armor Brackets
-      const bracketGeo = new THREE.BoxGeometry(0.25, h, 0.25);
-      [
-        [w / 2, d / 2],
-        [-w / 2, d / 2],
-        [w / 2, -d / 2],
-        [-w / 2, -d / 2],
-      ].forEach(([bx, bz]) => {
-        const bracket = new THREE.Mesh(bracketGeo, yellowRailMat);
-        bracket.position.set(bx, 0, bz);
-        bracket.castShadow = true;
-        cGroup.add(bracket);
-      });
-
-      // 5. Recessed Heavy Lifting Handles on Left and Right Sides
-      [-w / 2 - 0.02, w / 2 + 0.02].forEach((sideX) => {
-        const handleWell = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.45, 0.8), darkFrameMat);
-        handleWell.position.set(sideX, 0, 0);
-        cGroup.add(handleWell);
-
-        const handleBar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.65, 8), chromeHandleMat);
-        handleBar.position.set(sideX * 1.01, 0, 0);
-        cGroup.add(handleBar);
-      });
-
-      // 6. Electronic Lock Keypad & Status LED on Front & Back
-      [-d / 2 - 0.03, d / 2 + 0.03].forEach((faceZ) => {
-        const lockChassis = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.45, 0.06), darkFrameMat);
-        lockChassis.position.set(0, 0, faceZ);
-        cGroup.add(lockChassis);
-
-        const ledSlit = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.08), isAmmo ? cyanLedMat : emeraldLedMat);
-        ledSlit.position.set(0, 0.08, faceZ);
-        cGroup.add(ledSlit);
-      });
-
       return cGroup;
     };
 
     const crateLocations: [number, number, number, number, number, number][] = [
-      // Central foundry covers
       [11, 1.4, 9, 3.2, 2.8, 3.2],
       [14.5, 1.2, 9, 3.0, 2.4, 3.0],
       [11, 3.8, 9, 2.8, 2.0, 2.8],
       [-11, 1.4, -5, 3.2, 2.8, 3.2],
       [-14.5, 1.2, -5, 3.0, 2.4, 3.0],
       [4, 1.8, -14, 4.0, 3.6, 3.5],
-      // East Sector: Power Distribution Stacks
-      [32, 1.6, 12, 3.5, 3.2, 3.5],
-      [36, 1.4, 15, 3.2, 2.8, 3.2],
-      [32, 4.2, 12, 2.8, 2.0, 2.8],
-      [28, 1.4, -20, 4.0, 2.8, 3.5],
-      // West Sector: Heavy Logistics Cargo
-      [-32, 1.6, 14, 3.8, 3.2, 3.8],
-      [-36, 1.4, 18, 3.2, 2.8, 3.2],
-      [-30, 1.5, -25, 4.5, 3.0, 4.0],
-      [-38, 1.4, -22, 3.5, 2.8, 3.5],
-      // South Runway: Evacuation Ramp Containers
+      [34, 1.6, 12, 3.5, 3.2, 3.5],
+      [-34, 1.6, 14, 3.8, 3.2, 3.8],
       [-16, 1.6, 36, 4.0, 3.2, 4.0],
       [16, 1.6, 36, 4.0, 3.2, 4.0],
     ];
@@ -346,81 +508,44 @@ export class FactoryArenaBuilder {
       crates.push(c);
     });
 
-    // 4. Overhead Gantry Crane & Steel Girders
-    const girderMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.4,
-      metalness: 0.75,
-    });
-
-    // Cross-ceiling I-Beams with luminous cyber light bars across 160m
-    const beamGeo = new THREE.BoxGeometry(160, 1.4, 1.4);
-    const neonMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    const warmNeonMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
-    const lightBarGeo = new THREE.BoxGeometry(140, 0.15, 0.25);
-
-    [-36, -18, 0, 18, 36].forEach((z, i) => {
-      const beam = new THREE.Mesh(beamGeo, girderMat);
-      beam.position.set(0, 15, z);
-      beam.castShadow = true;
-      scene.add(beam);
-
-      const lightBar = new THREE.Mesh(lightBarGeo, i % 2 === 0 ? neonMat : warmNeonMat);
-      lightBar.position.set(0, 14.25, z);
-      scene.add(lightBar);
-    });
-
-    // Overhead Hanging Crane Hook (like concept art)
-    const cableGeo = new THREE.CylinderGeometry(0.04, 0.04, 7, 8);
-    const cable = new THREE.Mesh(cableGeo, steelMat);
-    cable.position.set(0, 11, -2);
-    scene.add(cable);
-
-    const hookGeo = new THREE.TorusGeometry(0.6, 0.14, 8, 16, Math.PI * 1.5);
-    const hook = new THREE.Mesh(hookGeo, yellowRailMat);
-    hook.position.set(0, 7.5, -2);
-    hook.rotation.z = Math.PI / 2;
-    scene.add(hook);
-
-    // 5. Heavy Structural Pillars across 160m Facility
+    // 9. Heavy Overhead Structural Pillars
     const pillars: THREE.Mesh[] = [];
-    const pillarGeo = new THREE.BoxGeometry(3.2, 16, 3.2);
+    const pillarGeo = new THREE.BoxGeometry(3.0, 20, 3.0);
     const pillarPositions: [number, number][] = [
-      [-48, -48],
-      [48, -48],
-      [-48, 48],
-      [48, 48],
-      [-48, 0],
-      [48, 0],
-      [0, -48],
-      [0, 48],
+      [-42, -42],
+      [42, -42],
+      [-42, 42],
+      [42, 42],
+      [-42, 0],
+      [42, 0],
     ];
 
     pillarPositions.forEach(([x, z]) => {
-      const pillar = new THREE.Mesh(pillarGeo, girderMat);
-      pillar.position.set(x, 8, z);
+      const pillar = new THREE.Mesh(pillarGeo, steelMat);
+      pillar.position.set(x, 10, z);
       pillar.castShadow = true;
       pillar.receiveShadow = true;
       scene.add(pillar);
       pillars.push(pillar);
     });
 
-    // 6. Volumetric Steam & Smoke Clouds (around the Titan Mech)
+    // 10. Volumetric Steam & Smoke Clouds
     const steamClouds: THREE.Mesh[] = [];
-    const smokeGeo = new THREE.SphereGeometry(1.6, 12, 12);
+    const smokeGeo = new THREE.SphereGeometry(2.0, 10, 10);
     const smokeMat = new THREE.MeshBasicMaterial({
-      color: 0x94a3b8,
+      color: 0x334155,
       transparent: true,
-      opacity: 0.15,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.18,
+      blending: THREE.NormalBlending,
       depthWrite: false,
     });
 
     const steamOffsets = [
-      new THREE.Vector3(2, 0.8, -8),
-      new THREE.Vector3(6, 1.2, -10),
-      new THREE.Vector3(3, 1.5, -12),
-      new THREE.Vector3(-1, 1.0, -9),
+      new THREE.Vector3(-22, 2.5, -12),
+      new THREE.Vector3(20, 2.5, -18),
+      new THREE.Vector3(26, 2.5, 20),
+      new THREE.Vector3(0, 3.0, -38),
+      new THREE.Vector3(-28, 2.5, -2),
     ];
 
     steamOffsets.forEach((pos) => {
@@ -430,13 +555,15 @@ export class FactoryArenaBuilder {
       steamClouds.push(cloud);
     });
 
-    // 7. Revolving Emergency Red Sirens (with intense red casting lights)
+    // 11. Revolving Emergency Red Sirens
     const sirens: { light: THREE.PointLight; mesh: THREE.Mesh; baseAngle: number }[] = [];
     const sirenPositions: [number, number, number][] = [
-      [-18, 4.0, 4],   // Mounted on left perimeter wall
-      [11, 4.9, 9],    // Mounted atop stacked crate
-      [-14, 2.8, -5],  // Mounted atop left crate
-      [4, 3.8, -14],   // Mounted on background machinery
+      [-18, 4.0, 4],
+      [11, 4.9, 9],
+      [-14, 2.8, -5],
+      [4, 3.8, -14],
+      [28, 4.5, -2],
+      [-28, 4.5, -2],
     ];
 
     const sirenBaseGeo = new THREE.CylinderGeometry(0.3, 0.35, 0.3, 12);
@@ -454,7 +581,7 @@ export class FactoryArenaBuilder {
       sDome.position.y = 0.3;
       sGroup.add(sDome);
 
-      const light = new THREE.PointLight(0xff0022, 4.5, 18);
+      const light = new THREE.PointLight(0xff0022, 3.5, 18);
       light.position.y = 0.4;
       sGroup.add(light);
 
@@ -465,13 +592,26 @@ export class FactoryArenaBuilder {
     const updateSirens = (time: number) => {
       sirens.forEach((siren) => {
         const pulse = (Math.sin(time * 6 + siren.baseAngle) + 1) * 0.5;
-        siren.light.intensity = 1.5 + pulse * 4.5;
+        siren.light.intensity = 1.0 + pulse * 4.0;
       });
 
-      // Drifting steam animation
+      // Drifting smoke animation
       steamClouds.forEach((cloud, idx) => {
-        cloud.position.y = 1.0 + Math.sin(time * 0.8 + idx) * 0.4;
-        cloud.scale.setScalar(1.0 + Math.sin(time * 0.5 + idx) * 0.25);
+        cloud.position.y = 2.2 + Math.sin(time * 0.8 + idx) * 0.4;
+        cloud.scale.setScalar(1.0 + Math.sin(time * 0.5 + idx) * 0.3);
+      });
+
+      // Flickering fire lights
+      fireLights.forEach((fl, idx) => {
+        fl.intensity = 2.5 + Math.sin(time * 16 + idx * 3) * 1.5;
+      });
+
+      // Rotate generator energy coils
+      generators.forEach((gen, idx) => {
+        if (!gen.isDestroyed) {
+          gen.coreMesh.rotation.y = time * 2.5 + idx;
+          gen.coreLight.intensity = 3.5 + Math.sin(time * 8 + idx) * 1.5;
+        }
       });
     };
 
@@ -480,8 +620,10 @@ export class FactoryArenaBuilder {
       catwalk,
       pillars,
       crates,
+      generators,
       sirens,
       steamClouds,
+      fireLights,
       updateSirens,
     };
   }

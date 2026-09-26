@@ -1,3 +1,14 @@
+// Complete 3D Gameplay Engine for Circuit Breaker: Overlink (Hackathon Edition)
+// Implements:
+// 1. Dark Futuristic City Warzone Environment
+// 2. Colossal Mega-Boss CORE-X (6-8x Player Size) with Cinematic Intro & 3 Phases
+// 3. Moving & Attacking Enemy Robots (Scouts, Enforcers, Shield Droids, Background patrols)
+// 4. Player Hero (Hands down naturally, smooth locomotion, KSR-29 Sniper Rifle)
+// 5. Unique Hacking Mechanic (Damaged Robot -> [E] HACK ROBOT -> RED to GREEN -> ALLY: 08s)
+// 6. Zero Debug Elements
+// 7. Clean HUD (HP, EMP, Objective, Score, Wave)
+// 8. Powerful Combat Feedback (Hit flashes, sparks, floating damage numbers, screen shake, debris)
+// 9. 3-Tier Level Progression: City Block (Rescue 3) -> Robot Factory (3 Generators) -> Core Chamber (Core-X)
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { factoryArena } from './FactoryArena';
@@ -12,7 +23,6 @@ import type { BossCoreXEntity } from './BossModel';
 import { NeuralTetherEngine } from './TetherEngine';
 import { ScreenShake } from '../../engine/screenshake';
 import { VFXSystem } from './VFXSystem';
-import type { InGameWaypoint } from './VFXSystem';
 import { input } from '../../engine/input';
 import { sounds } from '../../engine/audio';
 
@@ -25,16 +35,22 @@ export interface MissionBannerData {
 
 export interface OverlinkStats {
   health: number;
+  maxHealth: number;
   energy: number;
+  maxEnergy: number;
   thermalStability: number;
   ammo: number;
   maxAmmo: number;
   score: number;
   wave: number;
+  levelTitle: string;
+  objectiveText: string;
   hackProgress: number;
   isTetherActive: boolean;
   rescuedScientists: number;
   totalScientists: number;
+  generatorsDestroyed: number;
+  totalGenerators: number;
   titanHealth: number;
   isTitanAllied: boolean;
   activeChassis: 'UNIT7' | 'TITAN';
@@ -42,6 +58,7 @@ export interface OverlinkStats {
   bossActive: boolean;
   bossHp: number;
   bossMaxHp: number;
+  bossPhase: 1 | 2 | 3;
   bossAlert: string | null;
   scoutsEliminated: number;
   totalScouts: number;
@@ -53,6 +70,10 @@ export interface OverlinkStats {
   sniperAllyHp: number;
   sniperAllyMaxHp: number;
   sniperAllyDancing: boolean;
+  hackPromptTarget: { isNear: boolean; enemyType: string } | null;
+  hackingAnimState: 'NONE' | 'HACKING' | 'SUCCESS';
+  activeAllyTimer: number | null;
+  cinematicIntroActive: boolean;
 }
 
 interface OverlinkGame3DProps {
@@ -73,34 +94,45 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
   const stateRef = useRef({
     health: 100,
+    maxHealth: 100,
     energy: 100,
+    maxEnergy: 100,
     thermalStability: 100,
     ammo: 50,
     maxAmmo: 50,
     score: 0,
     wave: 1,
+    levelTitle: 'CITY BLOCK',
+    objectiveText: 'RESCUE HUMANS: 0/3',
     hackProgress: 0,
     isTetherActive: false,
     rescuedScientists: 0,
-    totalScientists: 2,
+    totalScientists: 3,
+    generatorsDestroyed: 0,
+    totalGenerators: 3,
     titanHealth: 100,
     isTitanAllied: false,
     activeChassis: 'UNIT7' as 'UNIT7' | 'TITAN',
     isShieldActive: false,
     bossActive: false,
-    bossHp: 500,
-    bossMaxHp: 500,
+    bossHp: 1200,
+    bossMaxHp: 1200,
+    bossPhase: 1 as 1 | 2 | 3,
     bossAlert: null as string | null,
     scoutsEliminated: 0,
     totalScouts: 6,
     enforcersEliminated: 0,
-    totalEnforcers: 2,
+    totalEnforcers: 3,
     activeBanner: null as MissionBannerData | null,
     activeWeapon: 'SNIPER' as 'PULSE' | 'SNIPER',
     sniperAllyRescued: true,
     sniperAllyHp: 350,
     sniperAllyMaxHp: 350,
     sniperAllyDancing: false,
+    hackPromptTarget: null as { isNear: boolean; enemyType: string } | null,
+    hackingAnimState: 'NONE' as 'NONE' | 'HACKING' | 'SUCCESS',
+    activeAllyTimer: null as number | null,
+    cinematicIntroActive: false,
     godMode,
     isRunning: true,
   });
@@ -120,19 +152,18 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     const s = stateRef.current;
 
-    // 1. SCENE SETUP (Clean, Vibrant, High-Tech Futuristic Light Theme)
+    // 1. SCENE SETUP (Dark Futuristic Robot-Revolt City Atmosphere)
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf1f5f9);
-    scene.fog = new THREE.FogExp2(0xe2e8f0, 0.009);
+    scene.background = new THREE.Color(0x060913);
+    scene.fog = new THREE.FogExp2(0x070c18, 0.012);
 
-    // 2. CAMERA, SCREEN SHAKE & VFX (Cinematic Over-The-Shoulder Camera)
+    // 2. CAMERA, SCREEN SHAKE & VFX
     const camera = new THREE.PerspectiveCamera(
       52,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    // Initial camera placement: elevated over-the-shoulder chase view
     camera.position.set(-7.0, 3.6, 10.8);
     const screenShake = new ScreenShake();
     const vfx = new VFXSystem(scene);
@@ -145,32 +176,31 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // 4. LIGHTING (Crisp high-visibility studio daylight with vibrant cyber accents)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.6);
+    // 4. ATMOSPHERIC LIGHTING (Cyberpunk Night Warzone with Neon Glows)
+    const ambientLight = new THREE.AmbientLight(0x0f172a, 1.4);
     scene.add(ambientLight);
 
-    // Main overhead cyber daylight floodlight
-    const dirLight = new THREE.DirectionalLight(0xffffff, 3.4);
-    dirLight.position.set(24, 38, 20);
+    const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.6);
+    dirLight.position.set(30, 50, 20);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 150;
+    dirLight.shadow.camera.left = -60;
+    dirLight.shadow.camera.right = 60;
+    dirLight.shadow.camera.top = 60;
+    dirLight.shadow.camera.bottom = -60;
     scene.add(dirLight);
 
-    // Vibrant Sky-Blue Cyber Rim Light
-    const rimLight = new THREE.DirectionalLight(0xbae6fd, 2.2);
-    rimLight.position.set(-20, 26, -30);
-    scene.add(rimLight);
+    const backLight = new THREE.DirectionalLight(0xf43f5e, 0.9);
+    backLight.position.set(-30, 40, -30);
+    scene.add(backLight);
 
-    // Floor upward electric cyan bounce
-    const floorLight = new THREE.PointLight(0x0ea5e9, 2.4, 65, 1.2);
-    floorLight.position.set(0, 3.0, 0);
-    scene.add(floorLight);
-
-    // 5. BUILD FACTORY ARENA
+    // 5. BUILD FUTURISTIC CITY WARZONE ARENA
     const arena = factoryArena.build(scene);
 
-    // 6. SPAWN EVACUATION AIRLOCK WITH VOLUMETRIC HOLOGRAPHIC BEACON (Expanded to 48m runway)
+    // 6. SPAWN EVACUATION AIRLOCK WITH EMERALD LIGHT BEACON
     const airlock = entityFactory.createEvacuationAirlock();
     airlock.position.set(0, 0, 48);
     scene.add(airlock);
@@ -179,55 +209,48 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     airlockLight.position.set(0, 4, 48);
     scene.add(airlockLight);
 
-    // Luminous emerald beam rising from the airlock into the ceiling
-    const beaconGeo = new THREE.CylinderGeometry(2.4, 2.4, 18, 24, 1, true);
-    const beaconMat = new THREE.MeshBasicMaterial({
-      color: 0x10b981,
-      transparent: true,
-      opacity: 0.35,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
-    beaconMesh.position.set(0, 9, 48);
-    scene.add(beaconMesh);
-
-    // 7. SPAWN HUMAN HERO (MAIN PLAYABLE CHARACTER) - Operative Nathan armed with 3D KSR-29 AP Sniper Rifle
+    // 7. SPAWN HUMAN HERO (OPERATIVE NATHAN)
     const unit7: HumanHeroEntity = humanHeroFactory.createHero();
-    unit7.group.position.set(-5, 0, 4);
-    unit7.group.rotation.y = -0.35;
+    unit7.group.position.set(-6, 0, 6);
+    unit7.group.rotation.y = 0;
     scene.add(unit7.group);
 
-    // 8. SPAWN MK-IV TITAN MECH - Massive in central foundry facing catwalk
+    // 8. SPAWN MK-IV TITAN MECH
     const titan: TitanMechEntity = entityFactory.createTitanMech();
-    titan.group.position.set(3.5, 0, -8);
+    titan.group.position.set(4, 0, -6);
     titan.group.rotation.y = Math.PI - 0.35;
     scene.add(titan.group);
 
-    // 9. SPAWN TRAPPED RESEARCH SCIENTISTS - Positioned tactically in the facility
+    // 9. SPAWN 3 TRAPPED SCIENTISTS (LEVEL 1 OBJECTIVE: RESCUE 3 HUMANS)
     const scientists: ScientistEntity[] = [
       entityFactory.createScientist(),
       entityFactory.createScientist(),
+      entityFactory.createScientist(),
     ];
-    scientists[0].group.position.set(18, 0, 12);
-    scientists[1].group.position.set(-22, 0, 18);
+    scientists[0].group.position.set(-25, 0, 18);
+    scientists[1].group.position.set(24, 0, 14);
+    scientists[2].group.position.set(0, 0, -20);
     scientists.forEach((sc) => scene.add(sc.group));
 
-    // 10. SPAWN SCOUT ENEMY BOTS (6 hostile scouts spread across 160m warzone)
+    // 10. SPAWN SCOUT ENEMY ROBOTS (Patrolling and Chasing)
     interface ActiveScout {
       group: THREE.Group;
       eye: THREE.Mesh;
       hp: number;
       speed: number;
       shootCooldown: number;
+      patrolAngle: number;
+      patrolCenter: THREE.Vector3;
+      isHacked: boolean;
+      hackTimer: number;
       animateBob: (time: number) => void;
     }
     const scouts: ActiveScout[] = [];
     const scoutSpawnPoints = [
       new THREE.Vector3(-36, 0, -26),
       new THREE.Vector3(36, 0, -26),
-      new THREE.Vector3(-40, 0, 16),
-      new THREE.Vector3(40, 0, 16),
+      new THREE.Vector3(-38, 0, 16),
+      new THREE.Vector3(38, 0, 16),
       new THREE.Vector3(-18, 0, -42),
       new THREE.Vector3(18, 0, -42),
     ];
@@ -236,39 +259,44 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       const scout = entityFactory.createScoutBot();
       scout.group.position.copy(pos);
       scene.add(scout.group);
-      scouts.push({ ...scout, shootCooldown: Math.random() * 60 });
+      scouts.push({
+        ...scout,
+        shootCooldown: Math.random() * 60,
+        patrolAngle: Math.random() * Math.PI * 2,
+        patrolCenter: pos.clone(),
+        isHacked: false,
+        hackTimer: 0,
+      });
     });
 
-    // 10b. SPAWN HEAVY COMBAT ENFORCERS (The 3D Robot Enemy Model)
+    // 10b. SPAWN HEAVY ENFORCERS & SHIELD ROBOTS
     const enforcers: EnforcerRobotEntity[] = [
-      enforcerRobotFactory.createEnforcer(new THREE.Vector3(26, 0, -14)),
-      enforcerRobotFactory.createEnforcer(new THREE.Vector3(-26, 0, -14)),
+      enforcerRobotFactory.createEnforcer(new THREE.Vector3(26, 0, -12), 'ATTACK'),
+      enforcerRobotFactory.createEnforcer(new THREE.Vector3(-26, 0, -12), 'ATTACK'),
+      enforcerRobotFactory.createEnforcer(new THREE.Vector3(0, 0, -28), 'SHIELD'),
     ];
     enforcers.forEach((enf) => scene.add(enf.group));
 
-    // 11. CORE-X BOSS ENTITY (Instantiated ready for Wave 2)
-    const boss: BossCoreXEntity = bossFactory.createCoreX();
-    boss.group.position.set(0, 0, -28);
-
-    // Boss Stomp Shockwave Ring
-    const shockwaveGeo = new THREE.RingGeometry(0.5, 1.2, 32);
-    shockwaveGeo.rotateX(-Math.PI / 2);
-    const shockwaveMat = new THREE.MeshBasicMaterial({
-      color: 0xff0044,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0,
+    // 10c. BACKGROUND PATROL DRONES (Rooftop Surveillance)
+    const bgDrones: THREE.Group[] = [];
+    [-45, 0, 45].forEach((x) => {
+      const bg = new THREE.Group();
+      bg.position.set(x, 22, -60);
+      const droneMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(2.0, 0.6, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3 })
+      );
+      bg.add(droneMesh);
+      const spot = new THREE.PointLight(0xff0044, 2.5, 25);
+      spot.position.y = -1;
+      bg.add(spot);
+      scene.add(bg);
+      bgDrones.push(bg);
     });
-    const shockwaveMesh = new THREE.Mesh(shockwaveGeo, shockwaveMat);
-    shockwaveMesh.position.set(0, 0.1, -28);
-    scene.add(shockwaveMesh);
 
-    let shockwaveActive = false;
-    let shockwaveRadius = 0;
-    let stompCooldown = 4.0;
-    let bossShootCooldown = 2.5;
-    let laserDamageSoundCooldown = 0;
-    let tetherAudioCooldown = 0;
+    // 11. CORE-X MEGA BOSS ENTITY (Instantiated ready for Level 3)
+    const boss: BossCoreXEntity = bossFactory.createCoreX();
+    boss.group.position.set(0, 0, -32);
 
     // 12. NEURAL TETHER ENGINE
     const tether = new NeuralTetherEngine(scene);
@@ -282,45 +310,36 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       isTitanShot?: boolean;
       isBossShot?: boolean;
       isSniperShot?: boolean;
+      isAllyShot?: boolean;
     }
     const projectiles: Projectile[] = [];
     const projGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8);
     projGeo.rotateX(Math.PI / 2);
-    const playerProjMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
     const enemyProjMat = new THREE.MeshBasicMaterial({ color: 0xff1133 });
-    const titanProjGeo = new THREE.SphereGeometry(0.35, 12, 12);
-    const titanProjMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    const bossProjGeo = new THREE.SphereGeometry(0.45, 12, 12);
+    const bossProjGeo = new THREE.SphereGeometry(0.65, 14, 14);
     const bossProjMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
 
-    // High-Velocity AP Sniper Projectile
-    const sniperProjGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.2, 8);
+    const sniperProjGeo = new THREE.CylinderGeometry(0.07, 0.07, 2.4, 8);
     sniperProjGeo.rotateX(Math.PI / 2);
     const sniperProjMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+    const allyProjMat = new THREE.MeshBasicMaterial({ color: 0x34d399 });
 
-    // Raycaster for mouse
+    // Raycaster for mouse aiming
     const raycaster = new THREE.Raycaster();
     const mousePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const mouseWorldPos = new THREE.Vector3();
 
-    // 14. MAIN GAME LOOP
+    // 14. GAME STATE & TIMERS
     const clock = new THREE.Clock();
     let animId: number;
     let shootCooldown = 0;
-    let swapCooldown = 0;
-    let weaponSwitchCooldown = 0;
-    let allyCommandCooldown = 0;
-    let camYaw = 0;
-    let effectiveYaw = 0;
     let invulnTimer = 0;
-    let timeSinceLastDamage = 0;
-    let regenSparkTimer = 0;
-    let isReloading = false;
-    let reloadTimer = 0;
+    let cinematicTimer = 0;
+    let hackingTimer = 0;
+    let activeHackingTarget: EnforcerRobotEntity | ActiveScout | null = null;
 
-    // Dynamic Mission Banner Announcement System
     let bannerTimeout: number | undefined;
-    const triggerBanner = (type: 'SUCCESS' | 'ALERT' | 'INFO', title: string, subtitle: string, duration = 3800) => {
+    const triggerBanner = (type: 'SUCCESS' | 'ALERT' | 'INFO', title: string, subtitle: string, duration = 3500) => {
       s.activeBanner = { id: Math.random().toString(), type, title, subtitle };
       sounds.playPowerup();
       if (bannerTimeout) window.clearTimeout(bannerTimeout);
@@ -329,30 +348,44 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       }, duration);
     };
 
-    const triggerWave2Boss = () => {
-      if (s.wave === 1) {
-        s.wave = 2;
-        s.bossActive = true;
-        s.bossAlert = 'CRITICAL ALERT: CORE-X TITAN SPIDER AWAKENED!';
-        triggerBanner('ALERT', 'CRITICAL THREAT: CORE-X AWAKENED!', 'APEX LEVEL HOSTILE ENGAGED // USE TITAN CANNONS!');
-        scene.add(boss.group);
-        boss.group.position.set(0, 0, -28);
-        boss.isAwake = true;
-        sounds.playBossRoar();
-        sounds.setBGMIntensity('boss');
-        screenShake.addTrauma(0.85);
-        vfx.triggerBossAlertFlash();
-        vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 6, 0)), 'CORE-X AWAKENED!', '#ff0033', 26, true);
+    // LEVEL TRANSITIONS:
+    // Level 1 Complete -> Advance to Level 2
+    const triggerLevel2 = () => {
+      s.wave = 2;
+      s.levelTitle = 'ROBOT FACTORY';
+      s.objectiveText = 'DESTROY GENERATORS: 0/3';
+      s.score += 3000;
+      triggerBanner('SUCCESS', 'CITY BLOCK LIBERATED!', 'DIRECTIVE: INFILTRATE FOUNDRY & DESTROY 3 GENERATORS (+3,000 PTS)');
+      sounds.playPowerup();
 
-        window.setTimeout(() => {
-          s.bossAlert = null;
-        }, 4500);
-      }
+      // Spawn reinforcing droids for Level 2
+      const newEnf1 = enforcerRobotFactory.createEnforcer(new THREE.Vector3(30, 0, -22), 'ATTACK');
+      const newEnf2 = enforcerRobotFactory.createEnforcer(new THREE.Vector3(-30, 0, -22), 'SHIELD');
+      enforcers.push(newEnf1, newEnf2);
+      scene.add(newEnf1.group, newEnf2.group);
+      s.totalEnforcers = enforcers.length;
     };
 
-    const initialMissionTimer = window.setTimeout(() => {
-      triggerBanner('INFO', 'MISSION OBJECTIVE ACTIVE', 'CLEAR HOSTILE AIR RECON SCOUTS [0/6]');
-    }, 800);
+    // Level 2 Complete -> Advance to Level 3 (Core Chamber & Cinematic Intro)
+    const triggerLevel3Boss = () => {
+      s.wave = 3;
+      s.levelTitle = 'CORE CHAMBER';
+      s.objectiveText = 'DEFEAT CORE-X';
+      s.bossActive = true;
+      s.cinematicIntroActive = true;
+      cinematicTimer = 3.8; // 3.8s cinematic camera sweep
+
+      scene.add(boss.group);
+      boss.group.position.set(0, 0, -32);
+      boss.isAwake = true;
+      boss.setPhase(1);
+
+      sounds.playBossRoar();
+      sounds.setBGMIntensity('boss');
+      screenShake.addTrauma(0.9);
+
+      triggerBanner('ALERT', 'CRITICAL THREAT: CORE-X ENGAGED!', 'MEGA MACHINE AWAKENED // OVERRIDE PROTOCOL INITIATED!');
+    };
 
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -365,105 +398,72 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     };
     window.addEventListener('resize', handleResize);
 
+    // Initial level banner
+    const initTimer = window.setTimeout(() => {
+      triggerBanner('INFO', 'MISSION DIRECTIVE: CITY BLOCK', 'RESCUE 3 RESEARCH SCIENTISTS TRAPPED IN RUINS [0/3]');
+    }, 600);
+
+    // MAIN GAME LOOP
     const loop = () => {
       if (!s.isRunning) return;
 
-      const delta = clock.getDelta();
+      const delta = Math.min(clock.getDelta(), 0.05);
       const time = clock.getElapsedTime();
 
-      // Update Invulnerability & Health Regen Timers
-      invulnTimer = Math.max(0, invulnTimer - delta);
-      timeSinceLastDamage += delta;
+      // A. UPDATE SCREEN SHAKE & VFX
+      screenShake.update(delta * 2.5);
+      camera.position.x += screenShake.offsetX * 0.04;
+      camera.position.y += screenShake.offsetY * 0.04;
+      vfx.update(delta);
+      arena.updateSirens(time);
 
-      // Active entity reference (Unit-7 or Titan)
-      const activeObj = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
+      // Animate Background Surveillance Drones
+      bgDrones.forEach((bg, idx) => {
+        bg.position.x += Math.sin(time * 0.8 + idx) * 0.08;
+      });
 
-      // Dash grants temporary invulnerability
-      if (input.isActionPressed('dash') && s.activeChassis === 'UNIT7') {
-        invulnTimer = Math.max(invulnTimer, 0.22);
-      }
+      // B. CINEMATIC CORE-X BOSS INTRO (Requirement 9)
+      if (s.cinematicIntroActive) {
+        cinematicTimer -= delta;
+        // Cinematic camera sweep: slowly pull back and tilt up to show the colossal 16m Core-X
+        camera.position.lerp(new THREE.Vector3(0, 14, 18), 0.04);
+        camera.lookAt(0, 10, -32);
 
-      // Passive Nanite Shield Regeneration: +12 HP/sec after 3s without taking damage
-      if (timeSinceLastDamage > 3.0 && s.health < 100 && s.isRunning) {
-        s.health = Math.min(100, s.health + delta * 12);
-        regenSparkTimer -= delta;
-        if (regenSparkTimer <= 0) {
-          vfx.emitSparks(activeObj.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 2, 0x10b981, 2);
-          regenSparkTimer = 0.35;
+        boss.animateCrawl(time, false);
+        boss.coreLight.intensity = 8.0 + Math.sin(time * 12) * 4.0;
+        screenShake.addTrauma(0.04); // subtle rumble
+
+        if (cinematicTimer <= 0) {
+          s.cinematicIntroActive = false;
         }
       }
 
-      // Visual i-frame flicker for Unit-7
-      if (invulnTimer > 0 && s.activeChassis === 'UNIT7') {
-        unit7.group.visible = Math.floor(time * 26) % 2 === 0;
-      } else if (s.activeChassis === 'UNIT7') {
-        unit7.group.visible = true;
+      // C. ACTIVE PLAYER OBJECT (Nathan or Titan)
+      const activeObj = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
+
+      // Invulnerability flicker
+      if (invulnTimer > 0) {
+        invulnTimer -= delta;
+        activeObj.visible = Math.floor(time * 26) % 2 === 0;
+      } else {
+        activeObj.visible = true;
       }
 
-      // A. UPDATE FACTORY SIRENS & VFX
-      arena.updateSirens(time);
-      vfx.update(delta);
-
-      // B. CURSOR-DRIVEN CAMERA ORBIT & ROTATION
-      const mouse = input.state.mouse;
-      const halfW = window.innerWidth * 0.5;
-      const halfH = window.innerHeight * 0.5;
-      const normX = (mouse.x - halfW) / (halfW || 1);
-      const normY = (mouse.y - halfH) / (halfH || 1);
-
-      // Consume physical mouse movements
-      const mouseDelta = input.consumeMouseDelta();
-      camYaw += mouseDelta.dx * 0.0035;
-
-      // Smooth edge-panning when aiming towards the screen edges
-      if (Math.abs(normX) > 0.35) {
-        const panDir = Math.sign(normX);
-        const panSpeed = (Math.abs(normX) - 0.35) / 0.65;
-        camYaw += panDir * panSpeed * 2.2 * delta;
+      // Passive Energy Regen
+      if (s.energy < s.maxEnergy) {
+        s.energy = Math.min(s.maxEnergy, s.energy + 8 * delta);
       }
 
-      // Dynamic Camera Orbit directly driven by cursor position across the screen
-      // Moving cursor right turns camera right; moving left turns camera left
-      const targetYaw = camYaw + normX * 0.82;
-      effectiveYaw = THREE.MathUtils.lerp(effectiveYaw, targetYaw, Math.min(1.0, delta * 10.0));
-
-      // Camera direction vectors in XZ plane
-      const fwdX = Math.sin(effectiveYaw);
-      const fwdZ = -Math.cos(effectiveYaw);
-      const rightX = Math.cos(effectiveYaw);
-      const rightZ = Math.sin(effectiveYaw);
-
-      // C. DYNAMIC PANORAMIC THIRD-PERSON CAMERA (100% UPRIGHT & ROCK-SOLID)
-      screenShake.update(delta * 2.2);
-
-      const isTitan = s.activeChassis === 'TITAN';
-      const camDist = isTitan ? 12.5 : 8.5;
-      const camHeight = (isTitan ? 8.2 : 5.8) - THREE.MathUtils.clamp(normY, -1.0, 1.0) * 0.8;
-      const shoulderOffset = isTitan ? 1.0 : 0.6;
-
-      // Over-the-shoulder chase view relative to current camera yaw
-      const targetCamX = activeObj.position.x - fwdX * camDist - rightX * shoulderOffset;
-      const targetCamZ = activeObj.position.z - fwdZ * camDist - rightZ * shoulderOffset;
-      const targetCamY = activeObj.position.y + camHeight;
-
-      const lerpFactor = Math.min(1.0, delta * 8.0);
-      camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.02;
-      camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.02;
-      camera.position.z += (targetCamZ - camera.position.z) * lerpFactor;
-
-      // Look forward along camera angle with dynamic lookahead
-      const lookDist = isTitan ? 4.5 : 3.0;
-      const lookTarget = new THREE.Vector3(
-        activeObj.position.x + fwdX * lookDist + rightX * (normX * 1.5),
-        activeObj.position.y + (isTitan ? 2.5 : 1.3),
-        activeObj.position.z + fwdZ * lookDist + rightZ * (normX * 1.5)
-      );
-
-      // Enforce strictly upright camera with world up (0, 1, 0) - NEVER mutate Euler rotation.z!
-      camera.up.set(0, 1, 0);
-      camera.lookAt(lookTarget);
+      // Ally Countdown Timer
+      if (s.activeAllyTimer !== null && s.activeAllyTimer > 0) {
+        s.activeAllyTimer -= delta;
+        if (s.activeAllyTimer <= 0) {
+          s.activeAllyTimer = null;
+        }
+      }
 
       // D. MOUSE AIM RAYCASTING
+      const mouse = input.state.mouse;
       const ndcX = (mouse.x / window.innerWidth) * 2 - 1;
       const ndcY = -(mouse.y / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
@@ -472,7 +472,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         hitPos = raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, 25);
       }
 
-      if (hitPos) {
+      if (hitPos && !s.cinematicIntroActive) {
         const targetAngle = Math.atan2(
           hitPos.x - activeObj.position.x,
           hitPos.z - activeObj.position.z
@@ -483,11 +483,18 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       }
 
-      // E. CAMERA-RELATIVE MOVEMENT (WASD)
+      // E. WASD MOVEMENT & SPRINT
+      const isSprinting = input.isActionPressed('dash') && s.energy > 5;
+      if (isSprinting) {
+        s.energy = Math.max(0, s.energy - 15 * delta);
+        // Sprint particles behind boots
+        vfx.emitSparks(activeObj.position.clone().add(new THREE.Vector3(0, 0.2, 0)), 1, 0x00f0ff, 3);
+      }
+
       const currentSpeed =
         s.activeChassis === 'TITAN'
-          ? 4.8 * delta
-          : (input.isActionPressed('dash') ? 14 : 8) * delta;
+          ? 4.5 * delta
+          : (isSprinting ? 13.5 : 7.8) * delta;
 
       let inputFwd = 0;
       let inputRight = 0;
@@ -496,455 +503,348 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       if (input.isActionPressed('right')) inputRight += 1;
       if (input.isActionPressed('left')) inputRight -= 1;
 
-      const isMoving = inputFwd !== 0 || inputRight !== 0;
+      const isMoving = (inputFwd !== 0 || inputRight !== 0) && !s.cinematicIntroActive;
       if (isMoving) {
         const length = Math.hypot(inputFwd, inputRight);
         const normFwd = inputFwd / length;
         const normRight = inputRight / length;
+
+        // Camera-aligned movement vectors
+        const fwdX = Math.sin(camera.rotation.y + Math.PI);
+        const fwdZ = Math.cos(camera.rotation.y + Math.PI);
+        const rightX = Math.cos(camera.rotation.y);
+        const rightZ = -Math.sin(camera.rotation.y);
+
         activeObj.position.x += (fwdX * normFwd + rightX * normRight) * currentSpeed;
         activeObj.position.z += (fwdZ * normFwd + rightZ * normRight) * currentSpeed;
+
+        // Arena boundary clamp (-75m to 75m)
+        activeObj.position.x = Math.max(-72, Math.min(72, activeObj.position.x));
+        activeObj.position.z = Math.max(-72, Math.min(72, activeObj.position.z));
       }
 
+      // Animate character walk
       if (s.activeChassis === 'UNIT7') {
         unit7.animateWalk(time, isMoving);
-        if (s.thermalStability < 100) {
-          s.thermalStability = Math.min(100, s.thermalStability + delta * 7.5);
-        }
       } else {
         titan.animateWalk(time, isMoving);
-        // Titan thermal countdown
-        s.thermalStability = Math.max(0, s.thermalStability - delta * 3.5);
-        if (s.thermalStability <= 0) {
-          // Meltdown: Eject back to Unit-7 with shockwave!
-          s.activeChassis = 'UNIT7';
-          s.isTitanAllied = true;
-          sounds.playExplosion('large');
-          screenShake.addTrauma(0.5);
-          vfx.emitSparks(titan.group.position, 40, 0x00f0ff, 12, true);
-          vfx.emitText(titan.group.position, 'THERMAL OVERHEAT // EJECT!', '#ef4444', 20, true);
-          unit7.group.position.copy(titan.group.position).add(new THREE.Vector3(2, 0, 2));
-          unit7.group.visible = true;
-        }
       }
 
-      // Clamp within boundaries (160m facility bounds)
-      activeObj.position.x = Math.max(-70, Math.min(70, activeObj.position.x));
-      activeObj.position.z = Math.max(-70, Math.min(70, activeObj.position.z));
-
-      // E. BODY-SWAPPING (EMBODY TITAN)
-      if (swapCooldown > 0) swapCooldown -= delta;
-      const distToTitan = unit7.group.position.distanceTo(titan.group.position);
-
-      if (
-        input.isActionPressed('special') &&
-        s.isTitanAllied &&
-        swapCooldown <= 0
-      ) {
-        swapCooldown = 0.8;
-        if (s.activeChassis === 'UNIT7' && distToTitan < 8.0) {
-          // EMBODY TITAN!
-          s.activeChassis = 'TITAN';
-          s.thermalStability = 100;
-          unit7.group.visible = false;
-          sounds.playPowerup();
-          screenShake.addTrauma(0.2);
-          vfx.emitSparks(titan.group.position, 25, 0x00f0ff, 8, true);
-          vfx.emitText(titan.group.position, 'EMBODIED MK-IV TITAN!', '#00f0ff', 22, true);
-        } else if (s.activeChassis === 'TITAN') {
-          // EJECT BACK TO UNIT-7!
-          s.activeChassis = 'UNIT7';
-          unit7.group.position.copy(titan.group.position).add(new THREE.Vector3(2, 0, 2));
-          unit7.group.visible = true;
-          sounds.playDash();
-          vfx.emitText(titan.group.position, 'DISENGAGED', '#94a3b8', 16);
-        }
+      // F. THIRD-PERSON COMBAT CAMERA (Smooth Chase Camera)
+      if (!s.cinematicIntroActive) {
+        const targetCamPos = activeObj.position.clone().add(new THREE.Vector3(-4.5, 5.2, 7.5));
+        camera.position.lerp(targetCamPos, 0.08);
+        camera.lookAt(activeObj.position.x, activeObj.position.y + 1.8, activeObj.position.z);
       }
 
-      // F. NEURAL TETHER HACKING (When piloting Unit-7)
-      if (s.activeChassis === 'UNIT7') {
-        const isAimingAtTitan = mouseWorldPos.distanceTo(titan.group.position) < 6;
-        const wantTether = input.state.mouse.rightDown;
+      // G. HACKING MECHANIC DETECTION & EXECUTION (Requirement 5)
+      // Search for nearest damaged enemy (< 60% HP) within 8 meters
+      let nearestHackable: EnforcerRobotEntity | ActiveScout | null = null;
+      let nearestHackDist = 8.5;
 
-        if (wantTether && distToTitan < 28 && isAimingAtTitan && !s.isTitanAllied) {
-          if (!s.isTetherActive) {
-            tether.activate(unit7.weaponMuzzle, titan.group);
-            s.isTetherActive = true;
-            sounds.playDash();
-          }
-          tether.update(unit7.weaponMuzzle, delta, time);
-          s.hackProgress = tether.state.progress;
-
-          // Tether hum sound & sparks at target
-          tetherAudioCooldown -= delta;
-          if (tetherAudioCooldown <= 0) {
-            sounds.playNeuralTetherHum();
-            vfx.emitSparks(titan.group.position.clone().add(new THREE.Vector3(0, 3, 0)), 4, 0x00f0ff, 5);
-            tetherAudioCooldown = 0.14;
-          }
-
-          if (s.hackProgress >= 100 && !s.isTitanAllied) {
-            s.isTitanAllied = true;
-            titan.setAllied(true);
-            tether.deactivate();
-            s.isTetherActive = false;
-            sounds.playPowerup();
-            screenShake.addTrauma(0.35);
-            vfx.emitSparks(titan.group.position, 45, 0x00f0ff, 12, true);
-            vfx.emitText(titan.group.position.clone().add(new THREE.Vector3(0, 5, 0)), 'NEURAL OVERLINK RESTORED!', '#00f0ff', 24, true);
-            s.score += 2500;
-            triggerBanner('SUCCESS', 'TITAN OVERLINK RESTORED!', 'PRESS [E] TO PILOT MK-IV TITAN MECH (+2,500 PTS)');
-          }
-        } else {
-          if (s.isTetherActive) {
-            tether.deactivate();
-            s.isTetherActive = false;
-          }
-        }
-      }
-
-      // G. TITAN SHIELD ACTIVATION
-      if (s.activeChassis === 'TITAN') {
-        s.isShieldActive = input.isActionPressed('dash');
-        titan.aegisShield.visible = s.isShieldActive;
-      } else {
-        s.isShieldActive = false;
-        titan.aegisShield.visible = false;
-      }
-
-      // H. WEAPON SWITCHING [Q] & ALLY COMMANDS [T]
-      if (weaponSwitchCooldown > 0) weaponSwitchCooldown -= delta;
-      if (allyCommandCooldown > 0) allyCommandCooldown -= delta;
-
-      if (input.isActionPressed('switchWeapon') && s.activeChassis === 'UNIT7' && weaponSwitchCooldown <= 0) {
-        weaponSwitchCooldown = 0.35;
-        s.activeWeapon = s.activeWeapon === 'PULSE' ? 'SNIPER' : 'PULSE';
-        sounds.playSniperReload();
-        vfx.emitText(
-          activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)),
-          s.activeWeapon === 'SNIPER' ? 'EQUIPPED: KSR-29 AP SNIPER' : 'EQUIPPED: PLASMA PULSE RIFLE',
-          s.activeWeapon === 'SNIPER' ? '#10b981' : '#38bdf8',
-          20,
-          true
-        );
-      }
-
-      if (input.isActionPressed('commandAlly') && allyCommandCooldown <= 0) {
-        allyCommandCooldown = 0.4;
-        if (s.activeChassis === 'UNIT7') {
-          unit7.toggleVictoryDance();
-          if (unit7.isDancing) {
-            triggerBanner('SUCCESS', 'VICTORY DANCE!', 'RESISTANCE CELEBRATION PROTOCOL ACTIVE! [F] TO COMBAT');
-            sounds.playPowerup();
-          } else {
-            triggerBanner('INFO', 'COMBAT STANCE', 'OPERATIVE NATHAN: KSR-29 AP SNIPER LOCKED ON HOSTILES');
-          }
-        }
-      }
-
-      // I. SHOOTING & RELOADING [R]
-      if (shootCooldown > 0) shootCooldown -= delta;
-
-      // Manual Reload Trigger on [R]
-      if (input.isActionPressed('reload') && s.activeChassis === 'UNIT7' && s.ammo < s.maxAmmo && !isReloading) {
-        isReloading = true;
-        reloadTimer = 0.9;
-        if (s.activeWeapon === 'SNIPER') {
-          sounds.playSniperReload();
-        } else {
-          sounds.playReload();
-        }
-        vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'RELOADING...', '#38bdf8', 18);
-      }
-
-      // Reload Progression
-      if (isReloading) {
-        reloadTimer -= delta;
-        if (reloadTimer <= 0) {
-          s.ammo = s.maxAmmo;
-          isReloading = false;
-          vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'AMMO REFILLED (50/50)', '#10b981', 18);
-        }
-      }
-
-      // Firing Controls
-      if (input.isActionPressed('fire') && shootCooldown <= 0) {
-        if (s.activeChassis === 'UNIT7') {
-          if (isReloading) {
-            // Can't shoot while reload in progress
-          } else if (s.ammo <= 0) {
-            // Auto-trigger reload on dry fire
-            isReloading = true;
-            reloadTimer = 0.9;
-            if (s.activeWeapon === 'SNIPER') {
-              sounds.playSniperReload();
-            } else {
-              sounds.playReload();
-            }
-            vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'NO AMMO // RELOADING [R]', '#ef4444', 18);
-          } else if (s.activeWeapon === 'SNIPER') {
-            shootCooldown = 0.72;
-            s.ammo = Math.max(0, s.ammo - 2);
-            sounds.playSniperShot();
-            screenShake.addTrauma(0.18);
-            unit7.triggerRecoil();
-            vfx.emitSparks(unit7.weaponMuzzle, 10, 0x10b981, 8);
-
-            const projMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
-            projMesh.position.copy(unit7.weaponMuzzle);
-            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle);
-            shootDir.y = 0;
-            shootDir.normalize();
-            projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
-            scene.add(projMesh);
-            projectiles.push({ mesh: projMesh, dir: shootDir, life: 2.2, isSniperShot: true });
-          } else {
-            shootCooldown = 0.18;
-            s.ammo--;
-            sounds.playShoot(900);
-            screenShake.addTrauma(0.04);
-            unit7.triggerRecoil();
-            vfx.emitSparks(unit7.weaponMuzzle, 4, 0x00f0ff, 4);
-
-            const projMesh = new THREE.Mesh(projGeo, playerProjMat);
-            projMesh.position.copy(unit7.weaponMuzzle);
-            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle);
-            shootDir.y = 0;
-            shootDir.normalize();
-            projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
-            scene.add(projMesh);
-            projectiles.push({ mesh: projMesh, dir: shootDir, life: 1.5 });
-          }
-        } else if (s.activeChassis === 'TITAN') {
-          // TITAN HYDRAULIC SLAM CANNON
-          shootCooldown = 0.45;
-          sounds.playTitanCannon();
-          screenShake.addTrauma(0.35);
-
-          const spawnPos = titan.group.position.clone().add(new THREE.Vector3(0, 3.2, 1.2));
-          vfx.emitSparks(spawnPos, 14, 0x38bdf8, 8);
-
-          const projMesh = new THREE.Mesh(titanProjGeo, titanProjMat);
-          projMesh.position.copy(spawnPos);
-          const shootDir = mouseWorldPos.clone().sub(titan.group.position);
-          shootDir.y = 0;
-          shootDir.normalize();
-          projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
-          scene.add(projMesh);
-          projectiles.push({ mesh: projMesh, dir: shootDir, life: 1.8, isTitanShot: true });
-        }
-      }
-
-      // I. SCOUT ENEMY AI & SHOOTING
-      scouts.forEach((scout) => {
-        scout.animateBob(time);
-        const scoutPos = scout.group.position;
-        const targetEntity = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
-        const distToPlayer = scoutPos.distanceTo(targetEntity.position);
-
-        const angle = Math.atan2(
-          targetEntity.position.x - scoutPos.x,
-          targetEntity.position.z - scoutPos.z
-        );
-        scout.group.rotation.y = angle;
-
-        if (distToPlayer > 8) {
-          scoutPos.x += Math.sin(angle) * scout.speed * delta;
-          scoutPos.z += Math.cos(angle) * scout.speed * delta;
-        }
-
-        // Scout shooting (balanced: 6-10s cooldown)
-        scout.shootCooldown -= delta * 20;
-        if (scout.shootCooldown <= 0) {
-          scout.shootCooldown = 140 + Math.random() * 80;
-          const eProj = new THREE.Mesh(projGeo, enemyProjMat);
-          eProj.position.copy(scoutPos).add(new THREE.Vector3(0, 0.8, 0));
-          const shootDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
-          eProj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
-          scene.add(eProj);
-          projectiles.push({ mesh: eProj, dir: shootDir, life: 2.5, isEnemy: true });
-        }
-      });
-
-      // I2. HEAVY COMBAT ENFORCER DROID AI & SHOOTING (3D Robot Enemy)
       enforcers.forEach((enf) => {
-        const enfPos = enf.group.position;
-        const targetEntity = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
-        const distToPlayer = enfPos.distanceTo(targetEntity.position);
-
-        const angle = Math.atan2(
-          targetEntity.position.x - enfPos.x,
-          targetEntity.position.z - enfPos.z
-        );
-        enf.group.rotation.y = angle;
-
-        if (distToPlayer > 10) {
-          enfPos.x += Math.sin(angle) * enf.speed * delta;
-          enfPos.z += Math.cos(angle) * enf.speed * delta;
-          enf.animateWalk(time, true);
-        } else {
-          enf.animateWalk(time, false);
-        }
-
-        // Enforcer Heavy Plasma Blast (balanced cooldown)
-        enf.shootCooldown -= delta * 20;
-        if (enf.shootCooldown <= 0) {
-          enf.shootCooldown = 90 + Math.random() * 50;
-          sounds.playShoot(420);
-          const eProj = new THREE.Mesh(projGeo, enemyProjMat);
-          eProj.position.copy(enfPos).add(new THREE.Vector3(0, 1.8, 0));
-          const shootDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
-          eProj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
-          scene.add(eProj);
-          projectiles.push({ mesh: eProj, dir: shootDir, life: 2.5, isEnemy: true });
+        if (enf.isAlive && !enf.isHacked && enf.hp < enf.maxHp * 0.65) {
+          const d = activeObj.position.distanceTo(enf.group.position);
+          if (d < nearestHackDist) {
+            nearestHackDist = d;
+            nearestHackable = enf;
+          }
         }
       });
 
-      // J. CORE-X BOSS AI & COMBAT (WAVE 2)
-      if (s.bossActive && boss.isAwake) {
-        const bossPos = boss.group.position;
-        const targetEntity = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
-        const distToPlayer = bossPos.distanceTo(targetEntity.position);
-
-        // Turn boss towards active target
-        const bossAngle = Math.atan2(
-          targetEntity.position.x - bossPos.x,
-          targetEntity.position.z - bossPos.z
-        );
-        boss.group.rotation.y = THREE.MathUtils.lerp(boss.group.rotation.y, bossAngle, 0.05);
-
-        // Boss creeping crawl
-        const bossSpeed = 3.2 * delta;
-        if (distToPlayer > 6.0) {
-          bossPos.x += Math.sin(bossAngle) * bossSpeed;
-          bossPos.z += Math.cos(bossAngle) * bossSpeed;
-          boss.animateCrawl(time, true);
-        } else {
-          boss.animateCrawl(time, false);
-        }
-
-        // 1. Sweeping Red Laser Beam (Tunable balanced DPS: 7/sec)
-        boss.updateLaserSweep(time);
-        const toPlayer = new THREE.Vector3().subVectors(activeObj.position, bossPos);
-        toPlayer.y = 0;
-        const projDist = toPlayer.dot(boss.laserDir);
-        if (projDist > 1.2 && projDist < 30) {
-          const projectedPoint = boss.laserDir.clone().multiplyScalar(projDist);
-          const perpDist = toPlayer.distanceTo(projectedPoint);
-          if (perpDist < 2.0) {
-            // Laser contact!
-            if (s.activeChassis === 'TITAN' && s.isShieldActive) {
-              // Blocked safely by Titan Aegis Shield
-              sounds.playShieldDeflect();
-              vfx.triggerShieldFlash();
-              vfx.emitSparks(activeObj.position, 6, 0x00f0ff, 8);
-            } else if (!s.godMode && invulnTimer <= 0) {
-              const laserDmg = (s.activeChassis === 'TITAN' ? 3.0 : 7.0) * delta;
-              s.health = Math.max(0, s.health - laserDmg);
-              timeSinceLastDamage = 0;
-              screenShake.addTrauma(delta * 0.15);
-              vfx.triggerDamageFlash();
-              vfx.emitSparks(activeObj.position, 2, 0xff0044, 4);
-
-              laserDamageSoundCooldown -= delta;
-              if (laserDamageSoundCooldown <= 0) {
-                sounds.playHit();
-                laserDamageSoundCooldown = 0.35;
-              }
-              if (s.health <= 0) {
-                s.isRunning = false;
-                onGameOver();
-                return;
-              }
-            }
+      scouts.forEach((sc) => {
+        if (!sc.isHacked && sc.hp < 40) {
+          const d = activeObj.position.distanceTo(sc.group.position);
+          if (d < nearestHackDist) {
+            nearestHackDist = d;
+            nearestHackable = sc;
           }
         }
+      });
 
-        // 2. Boss Plasma Missile Barrage (Balanced 6 dmg per missile)
-        bossShootCooldown -= delta;
-        if (bossShootCooldown <= 0) {
-          bossShootCooldown = 3.8;
-          sounds.playShoot(320);
-          [-1.4, 1.4].forEach((offset) => {
-            const bProjMesh = new THREE.Mesh(bossProjGeo, bossProjMat);
-            bProjMesh.position.copy(bossPos).add(new THREE.Vector3(offset, 3.4, 1.5));
-            const shootDir = activeObj.position.clone().sub(bProjMesh.position).normalize();
-            shootDir.y = 0;
-            scene.add(bProjMesh);
-            projectiles.push({ mesh: bProjMesh, dir: shootDir, life: 2.5, isEnemy: true, isBossShot: true });
+      if (nearestHackable) {
+        s.hackPromptTarget = { isNear: true, enemyType: 'ROBOT' };
+      } else {
+        s.hackPromptTarget = null;
+      }
+
+      // Trigger Hack on [E] key
+      if (input.isActionPressed('interact') && nearestHackable && s.hackingAnimState === 'NONE') {
+        activeHackingTarget = nearestHackable;
+        s.hackingAnimState = 'HACKING';
+        hackingTimer = 0.8; // 0.8s transition animation
+        sounds.playNeuralTetherHum();
+
+        // Connect cyan Overlink tether beam
+        tether.activate(unit7.weaponMuzzle, (nearestHackable as any).group);
+        vfx.emitSparks(activeObj.position, 16, 0x00f0ff, 8);
+      }
+
+      // Complete Hacking transition
+      if (s.hackingAnimState === 'HACKING') {
+        hackingTimer -= delta;
+        tether.update(unit7.weaponMuzzle, delta, time);
+
+        if (hackingTimer <= 0) {
+          s.hackingAnimState = 'NONE';
+          tether.deactivate();
+
+          if (activeHackingTarget) {
+            if ('convertToAlly' in activeHackingTarget) {
+              (activeHackingTarget as EnforcerRobotEntity).convertToAlly();
+            } else {
+              (activeHackingTarget as ActiveScout).isHacked = true;
+              (activeHackingTarget as ActiveScout).hackTimer = 8.0;
+              (activeHackingTarget as ActiveScout).eye.material = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+            }
+
+            s.activeAllyTimer = 8.0;
+            s.score += 500;
+            sounds.playPowerup();
+            vfx.emitSparks((activeHackingTarget as any).group.position, 35, 0x10b981, 10, true);
+            vfx.emitText((activeHackingTarget as any).group.position.clone().add(new THREE.Vector3(0, 3, 0)), 'HACKED! ALLIED DEFENDER', '#10b981', 22, true);
+            triggerBanner('SUCCESS', 'NEURAL OVERLINK SUCCESSFUL!', 'ROBOT CONVERTED INTO ALLIED DEFENDER (08s)');
+            activeHackingTarget = null;
+          }
+        }
+      }
+
+      // H. SHOOTING (KSR-29 AP Sniper Rifle)
+      if (shootCooldown > 0) shootCooldown -= delta;
+      if (input.isActionPressed('fire') && shootCooldown <= 0 && !s.cinematicIntroActive) {
+        shootCooldown = 0.35; // Fast tactical sniper cadence
+        unit7.triggerRecoil();
+        sounds.playSniperShot();
+        screenShake.addTrauma(0.18);
+
+        // Kinetic Muzzle Flash
+        vfx.emitSparks(unit7.weaponMuzzle, 12, 0x10b981, 8);
+
+        // Projectile towards mouseWorldPos
+        const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle).normalize();
+        shootDir.y = 0; // horizontal combat plane
+
+        const pMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
+        pMesh.position.copy(unit7.weaponMuzzle);
+        pMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
+        scene.add(pMesh);
+
+        projectiles.push({
+          mesh: pMesh,
+          dir: shootDir,
+          life: 2.2,
+          isSniperShot: true,
+        });
+      }
+
+      // I. ROBOT AI & MOVEMENT (Requirement 3)
+      // 1. Scout Robots Movement, Detection & Attacks
+      scouts.forEach((sc) => {
+        const scPos = sc.group.position;
+        const distToPlayer = scPos.distanceTo(activeObj.position);
+
+        if (sc.isHacked) {
+          // HACKED ALLY SCOUT: Follow player & attack rogue enemies!
+          sc.hackTimer -= delta;
+          const targetFollow = activeObj.position.clone().add(new THREE.Vector3(3, 2, 3));
+          scPos.lerp(targetFollow, 0.05);
+          sc.animateBob(time);
+
+          // Find rogue enemy to attack
+          sc.shootCooldown -= delta;
+          if (sc.shootCooldown <= 0) {
+            const rogueEnf = enforcers.find((e) => e.isAlive && !e.isHacked);
+            if (rogueEnf) {
+              sc.shootCooldown = 0.8;
+              const aDir = rogueEnf.group.position.clone().sub(scPos).normalize();
+              const aMesh = new THREE.Mesh(projGeo, allyProjMat);
+              aMesh.position.copy(scPos);
+              aMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), aDir);
+              scene.add(aMesh);
+              projectiles.push({ mesh: aMesh, dir: aDir, life: 1.8, isAllyShot: true });
+            }
+          }
+
+          if (sc.hackTimer <= 0) {
+            // Shut down
+            sc.hp = 0;
+            vfx.emitSparks(scPos, 15, 0x94a3b8, 4);
+            scene.remove(sc.group);
+          }
+        } else {
+          // ROGUE SCOUT: Patrol or Chase & Attack
+          if (distToPlayer < 36 && !s.cinematicIntroActive) {
+            // Chase player & maintain 9m distance
+            const dirToPlayer = activeObj.position.clone().sub(scPos).normalize();
+            if (distToPlayer > 9.5) {
+              scPos.x += dirToPlayer.x * 6.2 * delta;
+              scPos.z += dirToPlayer.z * 6.2 * delta;
+            } else if (distToPlayer < 7.0) {
+              scPos.x -= dirToPlayer.x * 4.5 * delta;
+              scPos.z -= dirToPlayer.z * 4.5 * delta;
+            }
+
+            // Shoot red plasma bolts
+            sc.shootCooldown -= delta;
+            if (sc.shootCooldown <= 0) {
+              sc.shootCooldown = 1.4 + Math.random() * 0.8;
+              sounds.playShoot(520);
+              const pMesh = new THREE.Mesh(projGeo, enemyProjMat);
+              pMesh.position.copy(scPos);
+              pMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirToPlayer);
+              scene.add(pMesh);
+              projectiles.push({ mesh: pMesh, dir: dirToPlayer, life: 2.0, isEnemy: true });
+            }
+          } else {
+            // Waypoint patrol circle
+            sc.patrolAngle += 0.8 * delta;
+            scPos.x = sc.patrolCenter.x + Math.cos(sc.patrolAngle) * 8;
+            scPos.z = sc.patrolCenter.z + Math.sin(sc.patrolAngle) * 8;
+          }
+          sc.animateBob(time);
+        }
+      });
+
+      // 2. Heavy Enforcers & Shield Bots Movement
+      enforcers.forEach((enf) => {
+        if (!enf.isAlive) return;
+
+        const enfPos = enf.group.position;
+        const distToPlayer = enfPos.distanceTo(activeObj.position);
+
+        if (enf.isHacked) {
+          // HACKED ALLY ENFORCER: Bodyguard following player & attacking Core-X or rogue droids!
+          enf.hackTimer -= delta;
+          const followGoal = activeObj.position.clone().add(new THREE.Vector3(-4, 0, 2));
+          enfPos.lerp(followGoal, 0.04);
+          enf.animateWalk(time, true);
+
+          // Attack nearest rogue target
+          enf.shootCooldown -= delta;
+          if (enf.shootCooldown <= 0) {
+            enf.shootCooldown = 0.9;
+            const target = s.bossActive ? boss.group.position : enforcers.find((e) => e.isAlive && !e.isHacked)?.group.position;
+            if (target) {
+              const aDir = target.clone().sub(enfPos).normalize();
+              aDir.y = 0;
+              enf.group.rotation.y = Math.atan2(aDir.x, aDir.z);
+              const aMesh = new THREE.Mesh(projGeo, allyProjMat);
+              aMesh.position.copy(enfPos).add(new THREE.Vector3(0, 1.5, 0));
+              aMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), aDir);
+              scene.add(aMesh);
+              projectiles.push({ mesh: aMesh, dir: aDir, life: 2.0, isAllyShot: true });
+            }
+          }
+
+          if (enf.hackTimer <= 0) {
+            enf.isAlive = false;
+            vfx.emitSparks(enfPos, 20, 0x94a3b8, 5);
+            scene.remove(enf.group);
+          }
+        } else {
+          // ROGUE ENFORCER: Walk, Strafe, Aim & Shoot
+          if (distToPlayer < 40 && !s.cinematicIntroActive) {
+            const dirToPlayer = activeObj.position.clone().sub(enfPos).normalize();
+            dirToPlayer.y = 0;
+            enf.group.rotation.y = Math.atan2(dirToPlayer.x, dirToPlayer.z);
+
+            // Maintain combat distance (12m for Attack, 6m for Shield)
+            const preferredDist = enf.type === 'SHIELD' ? 6.5 : 12.0;
+            if (distToPlayer > preferredDist + 1.5) {
+              enfPos.x += dirToPlayer.x * enf.speed * delta;
+              enfPos.z += dirToPlayer.z * enf.speed * delta;
+              enf.animateWalk(time, true);
+            } else {
+              // Strafe sideways
+              const strafeX = -dirToPlayer.z * Math.sin(time * 2) * 2.5 * delta;
+              const strafeZ = dirToPlayer.x * Math.sin(time * 2) * 2.5 * delta;
+              enfPos.x += strafeX;
+              enfPos.z += strafeZ;
+              enf.animateWalk(time, true);
+            }
+
+            // Shoot heavy plasma bursts
+            enf.shootCooldown -= delta;
+            if (enf.shootCooldown <= 0) {
+              enf.shootCooldown = enf.type === 'SHIELD' ? 2.2 : 1.6;
+              sounds.playShoot(380);
+              const pMesh = new THREE.Mesh(projGeo, enemyProjMat);
+              pMesh.position.copy(enfPos).add(new THREE.Vector3(0, 1.5, 0));
+              pMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirToPlayer);
+              scene.add(pMesh);
+              projectiles.push({ mesh: pMesh, dir: dirToPlayer, life: 2.2, isEnemy: true });
+            }
+          } else {
+            enf.animateWalk(time, false);
+          }
+        }
+      });
+
+      // 3. CORE-X MEGA BOSS BEHAVIOR (Requirement 2 & 10)
+      if (s.bossActive && boss.isAwake && !s.cinematicIntroActive) {
+        boss.animateCrawl(time, true);
+
+        // Track HP and update Phases
+        const hpPercent = boss.hp / boss.maxHp;
+        if (hpPercent <= 0.33 && boss.phase !== 3) {
+          boss.setPhase(3);
+          s.bossPhase = 3;
+          triggerBanner('ALERT', 'CORE-X OVERDRIVE!', 'PHASE 3: SPHERICAL AEGIS SHIELD ENGAGED!');
+          sounds.playBossRoar();
+          screenShake.addTrauma(0.6);
+        } else if (hpPercent <= 0.66 && hpPercent > 0.33 && boss.phase !== 2) {
+          boss.setPhase(2);
+          s.bossPhase = 2;
+          triggerBanner('ALERT', 'CORE-X DROID SWARM!', 'PHASE 2: REINFORCEMENT WAVE SUMMONED!');
+          sounds.playBossRoar();
+
+          // Summon reinforcement droids
+          const sum1 = enforcerRobotFactory.createEnforcer(new THREE.Vector3(18, 0, -26), 'ATTACK');
+          const sum2 = enforcerRobotFactory.createEnforcer(new THREE.Vector3(-18, 0, -26), 'SHIELD');
+          enforcers.push(sum1, sum2);
+          scene.add(sum1.group, sum2.group);
+        }
+
+        // Aim towards player
+        const bDir = activeObj.position.clone().sub(boss.group.position).normalize();
+        bDir.y = 0;
+        boss.group.rotation.y = Math.atan2(bDir.x, bDir.z);
+
+        // Boss Artillery Shooting
+        boss.shootCooldown -= delta;
+        if (boss.shootCooldown <= 0) {
+          boss.shootCooldown = boss.phase === 3 ? 1.4 : boss.phase === 2 ? 1.8 : 2.4;
+          sounds.playExplosion('small');
+
+          // Twin artillery cannons firing
+          [-4, 4].forEach((xSide) => {
+            const bProj = new THREE.Mesh(bossProjGeo, bossProjMat);
+            bProj.position.copy(boss.group.position).add(new THREE.Vector3(xSide, 8, 4));
+            scene.add(bProj);
+            projectiles.push({ mesh: bProj, dir: bDir.clone(), life: 3.0, isEnemy: true, isBossShot: true });
           });
         }
-
-        // 3. Boss Ground Stomp Shockwave (When player is near)
-        if (stompCooldown > 0) stompCooldown -= delta;
-        if (distToPlayer < 9.0 && stompCooldown <= 0) {
-          stompCooldown = 6.0;
-          shockwaveActive = true;
-          shockwaveRadius = 1.0;
-          shockwaveMesh.position.copy(bossPos);
-          shockwaveMesh.position.y = 0.1;
-          shockwaveMat.opacity = 0.9;
-          sounds.playExplosion('large');
-          screenShake.addTrauma(0.55);
-          vfx.emitSparks(bossPos, 35, 0xff0044, 12);
-          vfx.emitText(bossPos.clone().add(new THREE.Vector3(0, 3, 0)), 'STOMP SHOCKWAVE!', '#ff0044', 20, true);
-        }
-
-        // Shockwave expansion
-        if (shockwaveActive) {
-          shockwaveRadius += delta * 22;
-          shockwaveMesh.scale.set(shockwaveRadius, shockwaveRadius, shockwaveRadius);
-          shockwaveMat.opacity = Math.max(0, 1 - shockwaveRadius / 18);
-
-          if (Math.abs(distToPlayer - shockwaveRadius) < 1.8) {
-            if (s.activeChassis === 'TITAN' && s.isShieldActive) {
-              // Blocked by Titan shield
-              sounds.playShieldDeflect();
-              vfx.triggerShieldFlash();
-            } else if (!s.godMode && invulnTimer <= 0) {
-              invulnTimer = 0.7; // Shockwave grants 0.7s i-frame
-              timeSinceLastDamage = 0;
-              const shockDmg = s.activeChassis === 'TITAN' ? 4 : 8;
-              s.health = Math.max(0, s.health - shockDmg);
-              sounds.playHit();
-              screenShake.addTrauma(0.3);
-              vfx.triggerDamageFlash();
-              vfx.emitSparks(activeObj.position, 12, 0xff0044, 6);
-              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.5, 0)), `-${shockDmg}`, '#ef4444', 20, true);
-              if (s.health <= 0) {
-                s.isRunning = false;
-                onGameOver();
-                return;
-              }
-            }
-          }
-
-          if (shockwaveRadius >= 18) {
-            shockwaveActive = false;
-            shockwaveMat.opacity = 0;
-          }
-        }
       }
 
-      // K. UPDATE PROJECTILES & COLLISIONS
+      // J. PROJECTILE COLLISIONS & DAMAGE
       for (let i = projectiles.length - 1; i >= 0; i--) {
         const p = projectiles[i];
-        const projSpeed = p.isSniperShot ? 72 : (p.isTitanShot ? 28 : (p.isBossShot ? 20 : (p.isEnemy ? 24 : 38)));
+        const projSpeed = p.isSniperShot ? 75 : (p.isAllyShot ? 55 : (p.isBossShot ? 22 : 30));
         p.mesh.position.addScaledVector(p.dir, projSpeed * delta);
         p.life -= delta;
 
-        // Player / Titan / Sniper Projectile vs Scouts
+        // Player & Ally Projectiles vs Enemies
         if (!p.isEnemy) {
+          // 1. Vs Scouts
           for (let j = scouts.length - 1; j >= 0; j--) {
             const sc = scouts[j];
-            const dx = p.mesh.position.x - sc.group.position.x;
-            const dz = p.mesh.position.z - sc.group.position.z;
-            const distXZ = Math.hypot(dx, dz);
-            if (distXZ < (p.isSniperShot ? 2.5 : (p.isTitanShot ? 3.4 : 2.2))) {
+            if (sc.isHacked) continue;
+            if (p.mesh.position.distanceTo(sc.group.position) < 2.4) {
               sounds.playHit();
-              const dmg = p.isSniperShot ? 120 : (p.isTitanShot ? 80 : 50);
+              const dmg = p.isSniperShot ? 75 : 40;
               sc.hp -= dmg;
-              vfx.emitSparks(p.mesh.position, p.isSniperShot ? 30 : (p.isTitanShot ? 26 : 14), p.isSniperShot ? 0x10b981 : 0x00f0ff, p.isSniperShot ? 12 : 6);
-              vfx.emitText(sc.group.position, p.isSniperShot ? '-120 AP CRIT' : (p.isTitanShot ? '-80 CRIT' : '-50'), p.isSniperShot ? '#10b981' : '#38bdf8', 16, true);
+              vfx.emitSparks(p.mesh.position, 18, 0x10b981, 8);
+              vfx.emitText(sc.group.position, `-${dmg}`, '#10b981', 16, true);
 
               scene.remove(p.mesh);
               projectiles.splice(i, 1);
@@ -952,136 +852,155 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               if (sc.hp <= 0) {
                 sounds.playExplosion('small');
                 vfx.emitSparks(sc.group.position, 40, 0xff0044, 12, true);
-                vfx.emitText(sc.group.position, '+250 DESTROYED', '#10b981', 18);
                 scene.remove(sc.group);
                 scouts.splice(j, 1);
                 s.score += 250;
                 s.scoutsEliminated++;
-                if (s.scoutsEliminated >= s.totalScouts) {
-                  triggerBanner('SUCCESS', 'AIRSPACE SECURED!', 'ALL 6 HOSTILE AIR RECON SCOUTS DESTROYED (+1,000 PTS)');
-                  s.score += 1000;
-                  window.setTimeout(() => {
-                    triggerBanner('INFO', 'NEW MISSION DIRECTIVE', 'RESCUE TRAPPED RESEARCH PERSONNEL (0/2)');
-                  }, 3800);
-                } else {
-                  triggerBanner('INFO', 'AIR RECON INTERCEPTED', `SCOUT BOT DESTROYED [${s.scoutsEliminated}/${s.totalScouts}]`);
-                }
               }
               break;
             }
           }
 
-          // Player / Titan / Sniper Projectile vs Heavy Enforcers (3D Robot Enemy)
+          // 2. Vs Enforcers & Shield Bots
           for (let k = enforcers.length - 1; k >= 0; k--) {
             const enf = enforcers[k];
-            const dx = p.mesh.position.x - enf.group.position.x;
-            const dz = p.mesh.position.z - enf.group.position.z;
-            const distXZ = Math.hypot(dx, dz);
-            if (distXZ < (p.isSniperShot ? 2.6 : (p.isTitanShot ? 3.4 : 2.4))) {
+            if (!enf.isAlive || enf.isHacked) continue;
+
+            if (p.mesh.position.distanceTo(enf.group.position) < 2.5) {
+              // Check frontal energy shield on Shield droids
+              if (enf.hasShield) {
+                const toBullet = p.mesh.position.clone().sub(enf.group.position).normalize();
+                const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), enf.group.rotation.y);
+                const dot = toBullet.dot(forward);
+
+                if (dot > 0.3) {
+                  // Frontal shield deflects!
+                  sounds.playShieldDeflect();
+                  vfx.emitSparks(p.mesh.position, 16, 0x00f0ff, 9);
+                  vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), 'SHIELD DEFLECTED', '#00f0ff', 16);
+                  scene.remove(p.mesh);
+                  projectiles.splice(i, 1);
+                  break;
+                }
+              }
+
+              // Hit through shield or flanked
               sounds.playHit();
               enf.flashHit();
-              const dmg = p.isSniperShot ? 120 : (p.isTitanShot ? 80 : 50);
+              const dmg = p.isSniperShot ? 75 : 45;
               enf.hp -= dmg;
-              vfx.emitSparks(p.mesh.position, p.isSniperShot ? 32 : (p.isTitanShot ? 28 : 16), p.isSniperShot ? 0x10b981 : 0xff0033, 8);
-              vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), p.isSniperShot ? '-120 AP CRIT' : `-${dmg}`, p.isSniperShot ? '#10b981' : '#ef4444', 18, p.isSniperShot);
+              vfx.emitSparks(p.mesh.position, 22, 0x10b981, 8);
+              vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), `-${dmg}`, '#10b981', 18, true);
 
               scene.remove(p.mesh);
               projectiles.splice(i, 1);
 
               if (enf.hp <= 0) {
+                enf.isAlive = false;
                 sounds.playExplosion('large');
-                screenShake.addTrauma(0.4);
-                vfx.emitSparks(enf.group.position, 45, 0xff0044, 14, true);
-                vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 3.2, 0)), '+750 ENFORCER DESTROYED', '#10b981', 22, true);
+                screenShake.addTrauma(0.35);
+                vfx.emitSparks(enf.group.position, 50, 0xff0044, 14, true);
                 scene.remove(enf.group);
-                enforcers.splice(k, 1);
                 s.score += 750;
                 s.enforcersEliminated++;
-                if (s.enforcersEliminated >= s.totalEnforcers) {
-                  triggerBanner('SUCCESS', 'ENFORCERS DESTROYED!', 'PERIMETER DEFENSE CLEARED (+2,000 PTS)');
-                  s.score += 2000;
-                  if (s.rescuedScientists >= s.totalScientists && s.wave === 1) {
-                    window.setTimeout(() => triggerWave2Boss(), 1500);
-                  } else {
-                    window.setTimeout(() => {
-                      if (!s.isTitanAllied) {
-                        triggerBanner('INFO', 'DIRECTIVE: OVERLINK', 'HACK MK-IV TITAN MECH (HOLD RMB)');
-                      }
-                    }, 3800);
-                  }
-                } else {
-                  triggerBanner('SUCCESS', 'ENFORCER NEUTRALIZED!', `HEAVY COMBAT DROID ELIMINATED [${s.enforcersEliminated}/${s.totalEnforcers}]`);
-                }
               }
               break;
             }
           }
 
-          // Player / Titan / Sniper Projectile vs CORE-X BOSS
-          if (s.bossActive && boss.isAwake && p.mesh.position.distanceTo(boss.group.position) < 3.8) {
-            sounds.playHit();
-            boss.flashHit();
-            const dmg = p.isSniperShot ? 95 : (p.isTitanShot ? 65 : 22);
-            boss.hp = Math.max(0, boss.hp - dmg);
-            s.bossHp = boss.hp;
-            s.score += dmg * 10;
-            screenShake.addTrauma(p.isSniperShot ? 0.25 : (p.isTitanShot ? 0.22 : 0.08));
+          // 3. Vs Power Generators (Level 2 Objective: DESTROY 3 GENERATORS)
+          if (s.wave === 2) {
+            arena.generators.forEach((gen) => {
+              if (!gen.isDestroyed && p.mesh.position.distanceTo(gen.position) < 3.2) {
+                sounds.playHit();
+                const dmg = p.isSniperShot ? 75 : 40;
+                gen.hp -= dmg;
+                vfx.emitSparks(p.mesh.position, 24, 0x00f0ff, 10);
+                vfx.emitText(gen.position.clone().add(new THREE.Vector3(0, 3, 0)), `-${dmg}`, '#00f0ff', 20, true);
 
-            vfx.emitSparks(p.mesh.position, p.isSniperShot ? 32 : (p.isTitanShot ? 30 : 14), p.isSniperShot ? 0x10b981 : 0xff0044, 9);
-            vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 4.2, 0)), p.isSniperShot ? '-95 AP PIERCE' : (p.isTitanShot ? '-65 SLAM' : '-22'), p.isSniperShot ? '#10b981' : '#ff4444', 20, true);
+                scene.remove(p.mesh);
+                projectiles.splice(i, 1);
+
+                if (gen.hp <= 0) {
+                  gen.isDestroyed = true;
+                  s.generatorsDestroyed++;
+                  s.score += 1500;
+                  sounds.playExplosion('large');
+                  screenShake.addTrauma(0.65);
+                  vfx.emitSparks(gen.position, 70, 0x00f0ff, 16, true);
+                  vfx.emitText(gen.position.clone().add(new THREE.Vector3(0, 4, 0)), 'GENERATOR DESTROYED! +1500', '#10b981', 24, true);
+
+                  gen.coreMesh.material = new THREE.MeshBasicMaterial({ color: 0x334155 });
+                  gen.coreLight.intensity = 0;
+
+                  s.objectiveText = `DESTROY GENERATORS: ${s.generatorsDestroyed}/3`;
+
+                  if (s.generatorsDestroyed >= 3) {
+                    triggerBanner('SUCCESS', 'ALL GENERATORS OFFLINE!', 'CORE CHAMBER BLAST DOORS OPENED!');
+                    window.setTimeout(() => triggerLevel3Boss(), 1500);
+                  } else {
+                    triggerBanner('SUCCESS', 'POWER GENERATOR DESTROYED!', `FACILITY GRID CRITICAL [${s.generatorsDestroyed}/3]`);
+                  }
+                }
+              }
+            });
+          }
+
+          // 4. Vs CORE-X MEGA BOSS
+          if (s.bossActive && boss.isAwake && p.mesh.position.distanceTo(boss.group.position) < 7.5) {
+            // Check Phase 3 Aegis Shield
+            if (boss.phase === 3 && boss.isShieldActive) {
+              sounds.playShieldDeflect();
+              vfx.emitSparks(p.mesh.position, 20, 0x00f0ff, 9);
+              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 10, 0)), 'AEGIS SHIELD -15', '#00f0ff', 18);
+              boss.hp -= 15;
+            } else {
+              sounds.playHit();
+              boss.flashHit();
+              const dmg = p.isSniperShot ? 75 : 45;
+              boss.hp -= dmg;
+              vfx.emitSparks(p.mesh.position, 30, 0x10b981, 10);
+              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 10, 0)), `-${dmg}`, '#ff4444', 22, true);
+            }
+
+            s.bossHp = Math.max(0, boss.hp);
+            s.score += 150;
+            screenShake.addTrauma(0.12);
 
             scene.remove(p.mesh);
             projectiles.splice(i, 1);
 
+            // Boss Defeated!
             if (boss.hp <= 0) {
-              // BOSS DEFEATED!
               s.bossActive = false;
               s.bossHp = 0;
               sounds.playExplosion('large');
               screenShake.addTrauma(1.0);
-              vfx.emitSparks(boss.group.position, 90, 0xff0044, 16, true);
-              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 6, 0)), 'CORE-X OBLITERATED! +10,000', '#10b981', 28, true);
-              s.score += 10000;
+              vfx.emitSparks(boss.group.position, 120, 0xff0044, 20, true);
               scene.remove(boss.group);
               boss.dispose();
-              sounds.setBGMIntensity('normal');
-              triggerBanner('SUCCESS', 'FACILITY LIBERATED!', 'CORE-X DESTROYED // S-RANK VICTORY (+10,000 PTS)');
-
+              s.score += 10000;
+              triggerBanner('SUCCESS', 'PROTOCOL RESTORED!', 'CORE-X OFFLINE // HUMAN PROTECTION PROTOCOL: ONLINE');
               window.setTimeout(() => {
                 s.isRunning = false;
                 onVictory();
-              }, 1200);
+              }, 1500);
             }
-            continue;
           }
         }
 
-        // Enemy Projectile vs Player / Titan
+        // Enemy Projectiles vs Player
         if (p.isEnemy) {
-          // Blocked by Titan Aegis Shield
-          if (s.isShieldActive && p.mesh.position.distanceTo(titan.group.position) < 3.8) {
-            scene.remove(p.mesh);
-            projectiles.splice(i, 1);
-            sounds.playShieldDeflect();
-            vfx.triggerShieldFlash();
-            vfx.emitSparks(p.mesh.position, 18, 0x00f0ff, 9);
-            vfx.emitText(titan.group.position.clone().add(new THREE.Vector3(0, 3.5, 0)), 'SHIELD BLOCKED', '#00f0ff', 16);
-            continue;
-          }
-
-          const targetHitDist = s.activeChassis === 'TITAN' ? 2.4 : 1.4;
-          if (p.mesh.position.distanceTo(activeObj.position) < targetHitDist) {
+          if (p.mesh.position.distanceTo(activeObj.position) < 1.6) {
             if (!s.godMode && invulnTimer <= 0) {
-              invulnTimer = 0.55; // 0.55s invulnerability frames on projectile hit
-              timeSinceLastDamage = 0;
-              let dmg = p.isBossShot ? 6 : 3; // Scout shot only 3 dmg, Boss shot 6 dmg
-              if (s.activeChassis === 'TITAN') dmg = Math.max(1, Math.round(dmg * 0.4)); // Titan armor absorbs 60%
+              invulnTimer = 0.5;
+              const dmg = p.isBossShot ? 14 : 7;
               s.health = Math.max(0, s.health - dmg);
               sounds.playHit();
               screenShake.addTrauma(0.25);
               vfx.triggerDamageFlash();
-              vfx.emitSparks(activeObj.position, 12, 0xff0033, 6);
-              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.5, 0)), `-${dmg}`, '#ef4444', 18);
+              vfx.emitSparks(activeObj.position, 15, 0xff0033, 6);
+              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2, 0)), `-${dmg}`, '#ef4444', 18);
 
               if (s.health <= 0) {
                 s.isRunning = false;
@@ -1101,67 +1020,67 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       }
 
-      // L. RESCUE & EVACUATE SCIENTISTS (WAVE 1)
-      scientists.forEach((sc) => {
-        const scPos = sc.group.position;
-        if (!sc.isRescued) {
-          sc.animateIdle(time);
-          if (activeObj.position.distanceTo(scPos) < 4.5) {
-            sc.isRescued = true;
-            sounds.playPowerup();
-            vfx.emitSparks(scPos, 20, 0xf59e0b, 7, true);
-            vfx.emitText(scPos.clone().add(new THREE.Vector3(0, 3, 0)), 'SCIENTIST RESCUED! FOLLOW ME!', '#fbbf24', 18);
-          }
-        } else {
-          // Rescued: Follow towards Airlock!
-          const airlockPos = airlock.position;
-          const distToAirlock = scPos.distanceTo(airlockPos);
-
-          if (distToAirlock < 3.0) {
-            // Reached airlock! Evacuated!
-            s.rescuedScientists++;
-            s.score += 1500;
-            sounds.playEvacuateChime();
-            vfx.emitSparks(airlockPos, 35, 0x10b981, 10, true);
-            vfx.emitText(airlockPos.clone().add(new THREE.Vector3(0, 3, 0)), '+1500 EVACUATED!', '#34d399', 22, true);
-            scene.remove(sc.group);
-            sc.group.position.set(999, 999, 999);
-
-            if (s.rescuedScientists >= s.totalScientists) {
-              triggerBanner('SUCCESS', 'RESCUE COMPLETE!', 'ALL PERSONNEL SAFELY EVACUATED (+3,000 PTS)');
-              s.score += 3000;
-              if (s.enforcersEliminated >= s.totalEnforcers && s.wave === 1) {
-                window.setTimeout(() => triggerWave2Boss(), 1500);
-              } else {
-                window.setTimeout(() => {
-                  triggerBanner('INFO', 'SECTOR THREAT ACTIVE', 'PERSONNEL EVACUATED // DESTROY REMAINING ENFORCERS');
-                }, 3800);
-              }
-            } else {
-              triggerBanner('SUCCESS', 'CIVILIAN EVACUATED!', `PERSONNEL #${s.rescuedScientists} SAFELY SECURED (+1,500 PTS)`);
+      // K. RESCUE SCIENTISTS (LEVEL 1 OBJECTIVE: RESCUE 3 HUMANS)
+      if (s.wave === 1) {
+        scientists.forEach((sc) => {
+          const scPos = sc.group.position;
+          if (!sc.isRescued) {
+            sc.animateIdle(time);
+            if (activeObj.position.distanceTo(scPos) < 4.2) {
+              sc.isRescued = true;
+              sounds.playPowerup();
+              vfx.emitSparks(scPos, 22, 0x10b981, 8, true);
+              vfx.emitText(scPos.clone().add(new THREE.Vector3(0, 3, 0)), 'SCIENTIST RESCUED! FOLLOWING!', '#34d399', 18, true);
             }
           } else {
-            // Walk toward airlock
-            const angleToAirlock = Math.atan2(airlockPos.x - scPos.x, airlockPos.z - scPos.z);
-            scPos.x += Math.sin(angleToAirlock) * 4.2 * delta;
-            scPos.z += Math.cos(angleToAirlock) * 4.2 * delta;
-          }
-        }
-      });
+            // Escort toward Evacuation Airlock
+            const airlockPos = airlock.position;
+            const distToAirlock = scPos.distanceTo(airlockPos);
 
-      // M. PUSH STATS TO REACT HUD
+            if (distToAirlock < 3.2) {
+              s.rescuedScientists++;
+              s.score += 1500;
+              sounds.playEvacuateChime();
+              vfx.emitSparks(airlockPos, 40, 0x10b981, 12, true);
+              vfx.emitText(airlockPos.clone().add(new THREE.Vector3(0, 3, 0)), '+1500 EVACUATED!', '#10b981', 22, true);
+              scene.remove(sc.group);
+              sc.group.position.set(999, 999, 999);
+
+              s.objectiveText = `RESCUE HUMANS: ${s.rescuedScientists}/3`;
+
+              if (s.rescuedScientists >= 3) {
+                triggerLevel2();
+              } else {
+                triggerBanner('SUCCESS', 'HUMAN SECURED!', `RESEARCHER #${s.rescuedScientists} SAFELY EVACUATED (+1,500 PTS)`);
+              }
+            } else {
+              const aAngle = Math.atan2(airlockPos.x - scPos.x, airlockPos.z - scPos.z);
+              scPos.x += Math.sin(aAngle) * 4.5 * delta;
+              scPos.z += Math.cos(aAngle) * 4.5 * delta;
+            }
+          }
+        });
+      }
+
+      // L. UPDATE REACT HUD STATS
       onUpdateStats({
         health: s.health,
+        maxHealth: s.maxHealth,
         energy: s.energy,
+        maxEnergy: s.maxEnergy,
         thermalStability: Math.round(s.thermalStability),
         ammo: s.ammo,
         maxAmmo: s.maxAmmo,
         score: s.score,
         wave: s.wave,
+        levelTitle: s.levelTitle,
+        objectiveText: s.objectiveText,
         hackProgress: Math.round(s.hackProgress),
         isTetherActive: s.isTetherActive,
         rescuedScientists: s.rescuedScientists,
         totalScientists: s.totalScientists,
+        generatorsDestroyed: s.generatorsDestroyed,
+        totalGenerators: s.totalGenerators,
         titanHealth: s.titanHealth,
         isTitanAllied: s.isTitanAllied,
         activeChassis: s.activeChassis,
@@ -1169,6 +1088,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         bossActive: s.bossActive,
         bossHp: s.bossHp,
         bossMaxHp: s.bossMaxHp,
+        bossPhase: s.bossPhase,
         bossAlert: s.bossAlert,
         scoutsEliminated: s.scoutsEliminated,
         totalScouts: s.totalScouts,
@@ -1180,112 +1100,19 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         sniperAllyHp: 350,
         sniperAllyMaxHp: 350,
         sniperAllyDancing: unit7.isDancing,
+        hackPromptTarget: s.hackPromptTarget,
+        hackingAnimState: s.hackingAnimState,
+        activeAllyTimer: s.activeAllyTimer,
+        cinematicIntroActive: s.cinematicIntroActive,
       });
 
       // Render 3D Scene
       renderer.render(scene, camera);
 
-      // Render 2D Floating Combat Text, Vignettes & Tactical In-Game Waypoints onto overlay canvas
+      // Render 2D Floating Combat Text (Requirement 8 - Clean, no debug coordinates!)
       if (overlayCtx && overlayCanvas) {
-        const waypoints: InGameWaypoint[] = [];
-
-        // 1. Evacuation Airlock Waypoint
-        const distToAirlock = activeObj.position.distanceTo(airlock.position);
-        waypoints.push({
-          pos: new THREE.Vector3(0, 3.2, 48),
-          label: 'EVACUATION AIRLOCK',
-          sublabel: `AIRLOCK PAD (${Math.round(distToAirlock)}m)`,
-          color: '#10b981',
-          dist: distToAirlock,
-        });
-
-        // 2. Trapped / Escorted Scientists
-        scientists.forEach((sc, idx) => {
-          if (sc.group.position.x < 500) {
-            const dist = activeObj.position.distanceTo(sc.group.position);
-            if (!sc.isRescued) {
-              waypoints.push({
-                pos: sc.group.position.clone().add(new THREE.Vector3(0, 2.6, 0)),
-                label: `SCIENTIST #${idx + 1}`,
-                sublabel: `APPROACH TO RESCUE (${Math.round(dist)}m)`,
-                color: '#fbbf24',
-                dist,
-              });
-            } else {
-              waypoints.push({
-                pos: sc.group.position.clone().add(new THREE.Vector3(0, 2.6, 0)),
-                label: `SCIENTIST #${idx + 1} [FOLLOWING]`,
-                sublabel: 'LEAD TO GREEN AIRLOCK PAD',
-                color: '#34d399',
-                dist,
-              });
-            }
-          }
-        });
-
-        // 3. MK-IV Titan Mech Waypoint
-        if (!s.bossActive) {
-          const distTitan = activeObj.position.distanceTo(titan.group.position);
-          if (!s.isTitanAllied) {
-            waypoints.push({
-              pos: titan.group.position.clone().add(new THREE.Vector3(0, 5.8, 0)),
-              label: 'MK-IV TITAN MECH',
-              sublabel: `HOLD RMB TO HACK (${Math.round(distTitan)}m)`,
-              color: '#00f0ff',
-              dist: distTitan,
-            });
-          } else if (s.activeChassis === 'UNIT7') {
-            waypoints.push({
-              pos: titan.group.position.clone().add(new THREE.Vector3(0, 5.8, 0)),
-              label: 'MK-IV TITAN (ALLIED)',
-              sublabel: distTitan < 8 ? 'PRESS [E] TO PILOT MECH!' : `GET CLOSER (${Math.round(distTitan)}m)`,
-              color: '#38bdf8',
-              dist: distTitan,
-            });
-          }
-        }
-
-        // 4. CORE-X Boss Waypoint (Wave 2)
-        if (s.bossActive && boss.isAwake) {
-          const distBoss = activeObj.position.distanceTo(boss.group.position);
-          waypoints.push({
-            pos: boss.group.position.clone().add(new THREE.Vector3(0, 5.8, 0)),
-            label: 'APEX THREAT: CORE-X',
-            sublabel: `${Math.max(0, Math.round(boss.hp))} HP (${Math.round(distBoss)}m)`,
-            color: '#ef4444',
-            dist: distBoss,
-          });
-        }
-
-        // 5. Hostile Scout Enemy Waypoints (Who to fire at!)
-        scouts.forEach((sc, idx) => {
-          const distScout = activeObj.position.distanceTo(sc.group.position);
-          if (distScout < 55) {
-            waypoints.push({
-              pos: sc.group.position.clone().add(new THREE.Vector3(0, 2.2, 0)),
-              label: `HOSTILE SCOUT #${idx + 1}`,
-              sublabel: `AIM & SHOOT [LMB] (${Math.round(distScout)}m)`,
-              color: '#ef4444',
-              dist: distScout,
-            });
-          }
-        });
-
-        // 6. Hostile Heavy Combat Enforcer Waypoints (3D Robot Enemy)
-        enforcers.forEach((enf, idx) => {
-          const distEnf = activeObj.position.distanceTo(enf.group.position);
-          if (distEnf < 65) {
-            waypoints.push({
-              pos: enf.group.position.clone().add(new THREE.Vector3(0, 3.0, 0)),
-              label: `HEAVY ENFORCER #${idx + 1}`,
-              sublabel: `3D COMBAT DROID [${Math.max(0, enf.hp)}/120 HP] (${Math.round(distEnf)}m)`,
-              color: '#f43f5e',
-              dist: distEnf,
-            });
-          }
-        });
-
-        vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, waypoints);
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, []);
       }
 
       animId = requestAnimationFrame(loop);
@@ -1295,7 +1122,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     return () => {
       cancelAnimationFrame(animId);
-      window.clearTimeout(initialMissionTimer);
+      window.clearTimeout(initTimer);
       if (bannerTimeout) window.clearTimeout(bannerTimeout);
       window.removeEventListener('resize', handleResize);
       tether.dispose(scene);

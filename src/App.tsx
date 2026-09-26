@@ -20,34 +20,45 @@ export const App: React.FC = () => {
 
   const [stats, setStats] = useState<OverlinkStats>({
     health: 100,
+    maxHealth: 100,
     energy: 100,
+    maxEnergy: 100,
     thermalStability: 100,
     ammo: 50,
     maxAmmo: 50,
     score: 0,
     wave: 1,
+    levelTitle: 'CITY BLOCK',
+    objectiveText: 'RESCUE HUMANS: 0/3',
     hackProgress: 0,
     isTetherActive: false,
     rescuedScientists: 0,
-    totalScientists: 2,
+    totalScientists: 3,
+    generatorsDestroyed: 0,
+    totalGenerators: 3,
     titanHealth: 100,
     isTitanAllied: false,
     activeChassis: 'UNIT7',
     isShieldActive: false,
     bossActive: false,
-    bossHp: 500,
-    bossMaxHp: 500,
+    bossHp: 1200,
+    bossMaxHp: 1200,
+    bossPhase: 1,
     bossAlert: null,
     scoutsEliminated: 0,
     totalScouts: 6,
     enforcersEliminated: 0,
-    totalEnforcers: 2,
+    totalEnforcers: 3,
     activeBanner: null,
-    activeWeapon: 'PULSE',
-    sniperAllyRescued: false,
+    activeWeapon: 'SNIPER',
+    sniperAllyRescued: true,
     sniperAllyHp: 350,
     sniperAllyMaxHp: 350,
     sniperAllyDancing: false,
+    hackPromptTarget: null,
+    hackingAnimState: 'NONE',
+    activeAllyTimer: null,
+    cinematicIntroActive: false,
   });
 
   // Global key bindings
@@ -155,35 +166,39 @@ export const App: React.FC = () => {
         <GameOverModal
           score={stats.score}
           highScore={highScore}
-          enemiesDefeated={stats.scoutsEliminated + stats.enforcersEliminated + (!stats.bossActive && stats.wave === 2 ? 1 : 0)}
-          wave={stats.wave}
-          isNewHigh={stats.score > highScore}
+          humansRescued={stats.rescuedScientists}
+          totalHumans={stats.totalScientists}
           onRestart={startGame}
         />
       )}
 
-      {/* Victory Modal */}
+      {/* Requirement 12: Victory Modal */}
       {gameState === 'VICTORY' && (
-        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 z-50 text-white">
-          <div className="bg-slate-900 border border-emerald-500/60 rounded-2xl max-w-lg w-full p-8 text-center shadow-2xl box-glow-emerald">
-            <span className="inline-block px-4 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-mono font-bold tracking-widest uppercase mb-3 border border-emerald-500/40">
+        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 z-50 text-white font-mono select-none">
+          <div className="bg-slate-900 border-2 border-emerald-500/70 rounded-2xl max-w-lg w-full p-8 text-center shadow-[0_0_50px_rgba(16,185,129,0.5)]">
+            <span className="inline-block px-4 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold tracking-widest uppercase mb-3 border border-emerald-500/40">
               MISSION ACCOMPLISHED
             </span>
-            <h2 className="text-4xl font-black text-white tracking-wider mb-2 font-mono neon-glow-emerald">
+            <h2 className="text-4xl font-black text-emerald-400 tracking-wider mb-4 drop-shadow-[0_0_15px_#10b981]">
               PROTOCOL RESTORED
             </h2>
-            <p className="text-slate-400 text-sm mb-6">
-              All trapped scientists safely evacuated. MK-IV Titan neural bus hijacked.
-              Apex Corrupted AI <span className="text-rose-400 font-bold">CORE-X DEFEATED</span>.
-              Human Protection Protocol: <span className="text-emerald-400 font-bold">ONLINE</span>.
-            </p>
 
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 mb-6">
-              <span className="text-xs uppercase text-slate-500 font-bold tracking-wider block mb-1">
-                FINAL TACTICAL SCORE
-              </span>
-              <div className="text-5xl font-black text-cyan-400 font-mono tracking-wider neon-glow-cyan">
-                {stats.score.toLocaleString()}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-5 mb-6 space-y-3 text-left">
+              <div className="flex justify-between items-center text-sm border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400">APEX THREAT:</span>
+                <span className="text-rose-400 font-bold">CORE-X: OFFLINE</span>
+              </div>
+              <div className="flex justify-between items-center text-sm border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400">HUMANS RESCUED:</span>
+                <span className="text-emerald-400 font-bold">{stats.rescuedScientists} / {stats.totalScientists}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400">GLOBAL DIRECTIVE:</span>
+                <span className="text-cyan-300 font-bold">HUMAN PROTECTION PROTOCOL: ONLINE</span>
+              </div>
+              <div className="flex justify-between items-center text-sm pt-1">
+                <span className="text-slate-400 font-bold">FINAL SCORE:</span>
+                <span className="text-2xl font-black text-cyan-400">{stats.score.toLocaleString()}</span>
               </div>
             </div>
 
@@ -191,7 +206,7 @@ export const App: React.FC = () => {
               onClick={startGame}
               className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:brightness-110 text-slate-950 font-black text-lg tracking-wider rounded-xl transition-all shadow-xl cursor-pointer"
             >
-              PLAY AGAIN (SPACEBAR)
+              PLAY AGAIN (SPACE)
             </button>
           </div>
         </div>

@@ -329,6 +329,27 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       }, duration);
     };
 
+    const triggerWave2Boss = () => {
+      if (s.wave === 1) {
+        s.wave = 2;
+        s.bossActive = true;
+        s.bossAlert = 'CRITICAL ALERT: CORE-X TITAN SPIDER AWAKENED!';
+        triggerBanner('ALERT', 'CRITICAL THREAT: CORE-X AWAKENED!', 'APEX LEVEL HOSTILE ENGAGED // USE TITAN CANNONS!');
+        scene.add(boss.group);
+        boss.group.position.set(0, 0, -28);
+        boss.isAwake = true;
+        sounds.playBossRoar();
+        sounds.setBGMIntensity('boss');
+        screenShake.addTrauma(0.85);
+        vfx.triggerBossAlertFlash();
+        vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 6, 0)), 'CORE-X AWAKENED!', '#ff0033', 26, true);
+
+        window.setTimeout(() => {
+          s.bossAlert = null;
+        }, 4500);
+      }
+    };
+
     const initialMissionTimer = window.setTimeout(() => {
       triggerBanner('INFO', 'MISSION OBJECTIVE ACTIVE', 'CLEAR HOSTILE AIR RECON SCOUTS [0/6]');
     }, 800);
@@ -486,6 +507,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
       if (s.activeChassis === 'UNIT7') {
         unit7.animateWalk(time, isMoving);
+        if (s.thermalStability < 100) {
+          s.thermalStability = Math.min(100, s.thermalStability + delta * 7.5);
+        }
       } else {
         titan.animateWalk(time, isMoving);
         // Titan thermal countdown
@@ -624,7 +648,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       if (input.isActionPressed('reload') && s.activeChassis === 'UNIT7' && s.ammo < s.maxAmmo && !isReloading) {
         isReloading = true;
         reloadTimer = 0.9;
-        sounds.playReload();
+        if (s.activeWeapon === 'SNIPER') {
+          sounds.playSniperReload();
+        } else {
+          sounds.playReload();
+        }
         vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'RELOADING...', '#38bdf8', 18);
       }
 
@@ -647,7 +675,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             // Auto-trigger reload on dry fire
             isReloading = true;
             reloadTimer = 0.9;
-            sounds.playReload();
+            if (s.activeWeapon === 'SNIPER') {
+              sounds.playSniperReload();
+            } else {
+              sounds.playReload();
+            }
             vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'NO AMMO // RELOADING [R]', '#ef4444', 18);
           } else if (s.activeWeapon === 'SNIPER') {
             shootCooldown = 0.72;
@@ -659,8 +691,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
             const projMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
             projMesh.position.copy(unit7.weaponMuzzle);
-            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle).normalize();
+            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle);
             shootDir.y = 0;
+            shootDir.normalize();
             projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
             scene.add(projMesh);
             projectiles.push({ mesh: projMesh, dir: shootDir, life: 2.2, isSniperShot: true });
@@ -674,8 +707,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
             const projMesh = new THREE.Mesh(projGeo, playerProjMat);
             projMesh.position.copy(unit7.weaponMuzzle);
-            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle).normalize();
+            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle);
             shootDir.y = 0;
+            shootDir.normalize();
             projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
             scene.add(projMesh);
             projectiles.push({ mesh: projMesh, dir: shootDir, life: 1.5 });
@@ -691,8 +725,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
           const projMesh = new THREE.Mesh(titanProjGeo, titanProjMat);
           projMesh.position.copy(spawnPos);
-          const shootDir = mouseWorldPos.clone().sub(titan.group.position).normalize();
+          const shootDir = mouseWorldPos.clone().sub(titan.group.position);
           shootDir.y = 0;
+          shootDir.normalize();
+          projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
           scene.add(projMesh);
           projectiles.push({ mesh: projMesh, dir: shootDir, life: 1.8, isTitanShot: true });
         }
@@ -964,11 +1000,15 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
                 if (s.enforcersEliminated >= s.totalEnforcers) {
                   triggerBanner('SUCCESS', 'ENFORCERS DESTROYED!', 'PERIMETER DEFENSE CLEARED (+2,000 PTS)');
                   s.score += 2000;
-                  window.setTimeout(() => {
-                    if (!s.isTitanAllied) {
-                      triggerBanner('INFO', 'DIRECTIVE: OVERLINK', 'HACK MK-IV TITAN MECH (HOLD RMB)');
-                    }
-                  }, 3800);
+                  if (s.rescuedScientists >= s.totalScientists && s.wave === 1) {
+                    window.setTimeout(() => triggerWave2Boss(), 1500);
+                  } else {
+                    window.setTimeout(() => {
+                      if (!s.isTitanAllied) {
+                        triggerBanner('INFO', 'DIRECTIVE: OVERLINK', 'HACK MK-IV TITAN MECH (HOLD RMB)');
+                      }
+                    }, 3800);
+                  }
                 } else {
                   triggerBanner('SUCCESS', 'ENFORCER NEUTRALIZED!', `HEAVY COMBAT DROID ELIMINATED [${s.enforcersEliminated}/${s.totalEnforcers}]`);
                 }
@@ -1090,28 +1130,15 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             if (s.rescuedScientists >= s.totalScientists) {
               triggerBanner('SUCCESS', 'RESCUE COMPLETE!', 'ALL PERSONNEL SAFELY EVACUATED (+3,000 PTS)');
               s.score += 3000;
+              if (s.enforcersEliminated >= s.totalEnforcers && s.wave === 1) {
+                window.setTimeout(() => triggerWave2Boss(), 1500);
+              } else {
+                window.setTimeout(() => {
+                  triggerBanner('INFO', 'SECTOR THREAT ACTIVE', 'PERSONNEL EVACUATED // DESTROY REMAINING ENFORCERS');
+                }, 3800);
+              }
             } else {
               triggerBanner('SUCCESS', 'CIVILIAN EVACUATED!', `PERSONNEL #${s.rescuedScientists} SAFELY SECURED (+1,500 PTS)`);
-            }
-
-            // If all rescued: Transition to WAVE 2 CORE-X BOSS ENCOUNTER!
-            if (s.rescuedScientists >= s.totalScientists && s.wave === 1) {
-              s.wave = 2;
-              s.bossActive = true;
-              s.bossAlert = 'CRITICAL ALERT: CORE-X TITAN SPIDER AWAKENED!';
-              triggerBanner('ALERT', 'CRITICAL THREAT: CORE-X AWAKENED!', 'APEX LEVEL HOSTILE ENGAGED // USE TITAN CANNONS!');
-              scene.add(boss.group);
-              boss.group.position.set(0, 0, -28);
-              boss.isAwake = true;
-              sounds.playBossRoar();
-              sounds.setBGMIntensity('boss');
-              screenShake.addTrauma(0.85);
-              vfx.triggerBossAlertFlash();
-              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 6, 0)), 'CORE-X AWAKENED!', '#ff0033', 26, true);
-
-              window.setTimeout(() => {
-                s.bossAlert = null;
-              }, 4500);
             }
           } else {
             // Walk toward airlock

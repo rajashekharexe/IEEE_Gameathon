@@ -155,7 +155,7 @@ export const App: React.FC = () => {
         <GameOverModal
           score={stats.score}
           highScore={highScore}
-          enemiesDefeated={stats.isTitanAllied ? 1 : 0}
+          enemiesDefeated={stats.scoutsEliminated + stats.enforcersEliminated + (!stats.bossActive && stats.wave === 2 ? 1 : 0)}
           wave={stats.wave}
           isNewHigh={stats.score > highScore}
           onRestart={startGame}

@@ -163,30 +163,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
             )}
           </div>
 
-          {/* Fireteam Ally Status: Specialist Manuel */}
-          {stats.sniperAllyRescued && (
-            <div className="mt-2.5 bg-slate-900/90 backdrop-blur-md border border-emerald-500/50 p-2.5 rounded-xl shadow-xl">
-              <div className="flex items-center justify-between text-[11px] font-mono mb-1">
-                <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  SQUADMATE: SPECIALIST MANUEL
-                </span>
-                <span className="text-[10px] text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">
-                  {stats.sniperAllyDancing ? 'VICTORY DANCE 🕺' : 'KSR-29 AP [T]'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
-                <span>HEALTH: {stats.sniperAllyHp}/{stats.sniperAllyMaxHp}</span>
-                <span className="text-emerald-300 font-bold">75 AP DMG // COVERING FIRE</span>
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-400 rounded-full transition-all duration-150"
-                  style={{ width: `${(stats.sniperAllyHp / stats.sniperAllyMaxHp) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -334,7 +311,8 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">R</span> Reload</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">RMB</span> Hack</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">E</span> Pilot Mech</div>
-            <div><span className="text-emerald-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F</span> Victory Dance</div>
+            <div><span className="text-emerald-400 font-bold bg-slate-800 px-1 py-0.5 rounded">T</span> Victory Dance</div>
+            <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F</span> Fullscreen</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">Shift</span> Dash/Shield</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F1/G</span> God Mode</div>
             {onOpenJudgeModal && (

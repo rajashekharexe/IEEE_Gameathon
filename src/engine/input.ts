@@ -127,7 +127,7 @@ export class InputManager {
       case 'switchWeapon':
         return !!(k['KeyQ'] || k['q']);
       case 'commandAlly':
-        return !!(k['KeyT'] || k['t']);
+        return !!(k['KeyT'] || k['t'] || k['KeyC'] || k['c']);
       case 'reload':
         return !!(k['KeyR'] || k['r']);
       default:

@@ -316,7 +316,7 @@ export class VFXSystem {
       tempVec.project(camera);
 
       // Check if inside frustum
-      if (tempVec.z < 1.0) {
+      if (tempVec.z > -1.0 && tempVec.z < 1.0) {
         const screenX = (tempVec.x * 0.5 + 0.5) * width;
         const screenY = (-tempVec.y * 0.5 + 0.5) * height;
 

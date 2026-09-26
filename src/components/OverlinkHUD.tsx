@@ -5,9 +5,10 @@ import type { OverlinkStats } from '../games/overlink/OverlinkGame3D';
 interface OverlinkHUDProps {
   stats: OverlinkStats;
   godMode: boolean;
+  onOpenJudgeModal?: () => void;
 }
 
-export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
+export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpenJudgeModal }) => {
   const radius = 38;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (stats.thermalStability / 100) * circumference;
@@ -28,12 +29,22 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
             <div className="text-2xl font-black tracking-wider text-white neon-glow-cyan font-mono">
               OVERLINK
             </div>
-            <div className="inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700 text-[10px] font-mono">
-              <Cpu className="w-3 h-3 text-cyan-400" />
-              <span className="text-slate-400">CHASSIS:</span>
-              <span className={stats.activeChassis === 'TITAN' ? 'text-amber-400 font-bold' : 'text-cyan-400 font-bold'}>
-                {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN (PILOTING)' : 'UNIT-7 (CYBER DROID)'}
-              </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700 text-[10px] font-mono">
+                <Cpu className="w-3 h-3 text-cyan-400" />
+                <span className="text-slate-400">CHASSIS:</span>
+                <span className={stats.activeChassis === 'TITAN' ? 'text-amber-400 font-bold' : 'text-cyan-400 font-bold'}>
+                  {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN (PILOTING)' : 'UNIT-7 (CYBER DROID)'}
+                </span>
+              </div>
+              {onOpenJudgeModal && (
+                <button
+                  onClick={onOpenJudgeModal}
+                  className="pointer-events-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-950/80 hover:bg-amber-900/90 border border-amber-500/50 text-[10px] font-mono text-amber-300 font-bold cursor-pointer transition-colors shadow-lg"
+                >
+                  <span>🏆 JURY DECK [J]</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -294,6 +305,16 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">E</span> Pilot Mech</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">Shift</span> Dash/Shield</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F1/G</span> God Mode</div>
+            {onOpenJudgeModal && (
+              <div>
+                <button
+                  onClick={onOpenJudgeModal}
+                  className="pointer-events-auto text-amber-300 font-bold bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                >
+                  J Jury Deck
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4 bg-slate-900/85 backdrop-blur-md border border-cyan-500/40 px-6 py-2.5 rounded-2xl shadow-2xl">

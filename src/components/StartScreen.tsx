@@ -7,9 +7,10 @@ interface StartScreenProps {
   selectedMode: '2D' | '3D';
   onSelectMode: (mode: '2D' | '3D') => void;
   highScore: number;
+  onOpenJudgeModal?: () => void;
 }
 
-export const StartScreen: React.FC<StartScreenProps> = ({ onStart, highScore }) => {
+export const StartScreen: React.FC<StartScreenProps> = ({ onStart, highScore, onOpenJudgeModal }) => {
   return (
     <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-40 text-white select-none">
       {/* Background Animated Gradient Blobs */}
@@ -56,18 +57,29 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, highScore }) 
           <div className="bg-slate-900/80 border border-cyan-500/30 p-2.5 rounded-xl">
             <Shield className="w-4 h-4 text-cyan-400 mx-auto mb-1" />
             <div className="text-slate-400 text-[10px]">EMP BLASTER</div>
-            <div className="font-bold text-white">LMB / SPACE</div>
+            <div className="font-bold text-white">LMB / KEY [R]</div>
           </div>
         </div>
 
-        {/* Launch Button */}
-        <button
-          onClick={() => onStart('3D')}
-          className="w-full py-4 px-8 bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:brightness-110 text-slate-950 font-black text-xl tracking-wider rounded-2xl shadow-xl hover:shadow-cyan-500/30 transition-all flex items-center justify-center gap-3 cursor-pointer group mb-4"
-        >
-          <Play className="w-6 h-6 fill-slate-950 transition-transform group-hover:scale-110" />
-          INITIATE NEURAL LINK (SPACEBAR)
-        </button>
+        {/* Action Buttons: Play + Judge Deck */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full mb-4">
+          <button
+            onClick={() => onStart('3D')}
+            className="flex-1 py-4 px-6 bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-600 hover:brightness-110 text-slate-950 font-black text-lg tracking-wider rounded-2xl shadow-xl hover:shadow-cyan-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer group"
+          >
+            <Play className="w-5 h-5 fill-slate-950 transition-transform group-hover:scale-110" />
+            INITIATE GAME (SPACE)
+          </button>
+
+          {onOpenJudgeModal && (
+            <button
+              onClick={onOpenJudgeModal}
+              className="py-4 px-5 bg-slate-900/90 border border-amber-500/60 hover:border-amber-400 text-amber-300 font-bold font-mono text-xs tracking-wider rounded-2xl shadow-lg hover:bg-amber-950/40 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>🏆 JUDGE DEFENSE DECK [J]</span>
+            </button>
+          )}
+        </div>
 
         {/* Bottom Hotkeys Legend */}
         <div className="text-[11px] text-slate-400 font-mono flex items-center justify-center gap-3">

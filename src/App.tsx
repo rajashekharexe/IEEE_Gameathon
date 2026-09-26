@@ -4,6 +4,7 @@ import type { OverlinkStats } from './games/overlink/OverlinkGame3D';
 import { OverlinkHUD } from './components/OverlinkHUD';
 import { StartScreen } from './components/StartScreen';
 import { GameOverModal } from './components/GameOverModal';
+import { JudgeDefenseModal } from './components/JudgeDefenseModal';
 import { input } from './engine/input';
 import { sounds } from './engine/audio';
 
@@ -12,6 +13,7 @@ type GameState = 'START' | 'PLAYING' | 'GAMEOVER' | 'VICTORY';
 export const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>('START');
   const [godMode, setGodMode] = useState<boolean>(false);
+  const [showJudgeModal, setShowJudgeModal] = useState<boolean>(false);
   const [highScore, setHighScore] = useState<number>(() => {
     return parseInt(localStorage.getItem('circuit_breaker_highscore') || '0', 10);
   });
@@ -53,6 +55,9 @@ export const App: React.FC = () => {
       }
       if (e.code === 'F1' || (e.code === 'KeyG' && !e.ctrlKey)) {
         setGodMode((prev) => !prev);
+      }
+      if (e.code === 'KeyJ') {
+        setShowJudgeModal((prev) => !prev);
       }
       if (e.code === 'KeyF') {
         if (!document.fullscreenElement) {
@@ -115,7 +120,11 @@ export const App: React.FC = () => {
             onGameOver={handleGameOver}
             onVictory={handleVictory}
           />
-          <OverlinkHUD stats={stats} godMode={godMode} />
+          <OverlinkHUD
+            stats={stats}
+            godMode={godMode}
+            onOpenJudgeModal={() => setShowJudgeModal(true)}
+          />
         </>
       )}
 
@@ -126,8 +135,15 @@ export const App: React.FC = () => {
           selectedMode="3D"
           onSelectMode={() => {}}
           highScore={highScore}
+          onOpenJudgeModal={() => setShowJudgeModal(true)}
         />
       )}
+
+      {/* Judge Defense & Evaluation Dossier Modal */}
+      <JudgeDefenseModal
+        isOpen={showJudgeModal}
+        onClose={() => setShowJudgeModal(false)}
+      />
 
       {/* Game Over Screen */}
       {gameState === 'GAMEOVER' && (

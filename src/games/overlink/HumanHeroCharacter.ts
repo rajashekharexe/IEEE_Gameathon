@@ -371,25 +371,42 @@ class HumanHeroFactory {
     const leftLowerArm = humanScene.getObjectByName('rp_manuel_animated_001_dancing_lowerarm_l') as THREE.Bone | null;
     const leftHand = humanScene.getObjectByName('rp_manuel_animated_001_dancing_hand_l') as THREE.Bone | null;
 
-    // Set up AnimationMixer for locomotion and victory dance
+    // Set up AnimationMixer:
+    // 1. Locomotion clip (legs & hips only) - keeps upper body locked in combat rifle grip
+    // 2. Full dance clip (all joints) - active during victory celebration [T]
     let mixer: THREE.AnimationMixer | null = null;
     let walkAction: THREE.AnimationAction | null = null;
+    let danceAction: THREE.AnimationAction | null = null;
+
     if (this.humanAnimations.length > 0) {
+      const rawClip = this.humanAnimations[0];
       mixer = new THREE.AnimationMixer(humanScene);
-      walkAction = mixer.clipAction(this.humanAnimations[0]);
+
+      // Full dance clip
+      danceAction = mixer.clipAction(rawClip);
+      danceAction.setLoop(THREE.LoopRepeat, Infinity);
+
+      // Filtered locomotion tracks: exclude upper body (shoulders, arms, hands, neck, head)
+      const isUpperBody = (name: string) =>
+        /shoulder|upperarm|lowerarm|hand|thumb|index|middle|ring|pinky|twist|neck|head|eye/i.test(name);
+      const legTracks = rawClip.tracks.filter((t) => !isUpperBody(t.name));
+      const walkClip = new THREE.AnimationClip('WalkLocomotion', rawClip.duration, legTracks);
+      walkAction = mixer.clipAction(walkClip);
       walkAction.setLoop(THREE.LoopRepeat, Infinity);
       walkAction.play();
-      walkAction.timeScale = 0.5; // Steady locomotion cadence
+      walkAction.timeScale = 0.6;
     }
 
     // 2. Build and Mount the High-Detail 3D KSR-29 AP Sniper Rifle
     const gunContainer = new THREE.Group();
     const sniperModel = this.createSniperRifle();
+    // Scale to realistic sniper rifle proportions (~1.12m length)
+    sniperModel.scale.setScalar(0.68);
     gunContainer.add(sniperModel);
 
     // Muzzle Point Light (Flashes bright emerald-amber upon firing)
     const muzzleFlashLight = new THREE.PointLight(0x34d399, 0, 14);
-    muzzleFlashLight.position.set(0, 0.03, 1.45);
+    muzzleFlashLight.position.set(0, 0.02, 0.98);
     gunContainer.add(muzzleFlashLight);
 
     // Tactical Emerald Laser Sight projecting forward from muzzle tip
@@ -404,14 +421,13 @@ class HumanHeroFactory {
       new THREE.Vector3(0, 0, 35),
     ]);
     const aimLaser = new THREE.Line(laserGeo, laserMat);
-    aimLaser.position.set(0, 0.03, 1.45);
+    aimLaser.position.set(0, 0.02, 0.98);
     gunContainer.add(aimLaser);
 
-    // Position gun firmly in Manuel's right hands & chest
-    // Manuel's right shoulder/arm is at X = -0.16, chest height Y = 1.15, Z = 0.28 forward
-    const baseGunX = -0.16;
-    const baseGunY = 1.15;
-    const baseGunZ = 0.28;
+    // Position gun firmly shouldered against Manuel's right chest & hands
+    const baseGunX = -0.10;
+    const baseGunY = 1.10;
+    const baseGunZ = 0.18;
     gunContainer.position.set(baseGunX, baseGunY, baseGunZ);
     masterGroup.add(gunContainer);
 
@@ -423,20 +439,20 @@ class HumanHeroFactory {
     let flashTimer = 0;
     let isDancing = false;
 
-    // Tactical Combat Quaternions for Holding Rifle in Two Hands
+    // Tactical Two-Handed Combat Arm Quaternions (Grip & Support Stance)
     const qCombatUpperR = new THREE.Quaternion(-0.24369, 0.56081, -0.11195, 0.78331)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.55, 0.35, -0.25, 'XYZ')));
+      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.55, 0.22, 0.05, 'YXZ')));
     const qCombatLowerR = new THREE.Quaternion(0.13198, -0.04066, 0.00505, 0.99041)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.75, -0.2, 0.15, 'XYZ')));
+      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.45, 0.35, -0.15, 'YXZ')));
     const qCombatHandR = new THREE.Quaternion(-0.58297, -0.06395, -0.17320, 0.79124)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.2, 0.1, 0.0, 'XYZ')));
+      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0.1, 0.1, 'YXZ')));
 
     const qCombatUpperL = new THREE.Quaternion(0.34041, 0.44008, -0.40100, 0.72777)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.45, 0.55, 0.35, 'XYZ')));
+      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.1, 2.85, 0.45, 'YXZ')));
     const qCombatLowerL = new THREE.Quaternion(-0.39233, -0.00064, -0.01512, 0.91970)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.85, -0.25, 0.15, 'XYZ')));
+      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.2, 0.1, 0.85, 'YXZ')));
     const qCombatHandL = new THREE.Quaternion(-0.69270, 0.03114, -0.06152, 0.71792)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0.2, 0.0, 'XYZ')));
+      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0.2, 0.1, 'YXZ')));
 
     // Lock arms into tactical two-handed rifle firing grip
     const lockCombatArms = () => {
@@ -463,15 +479,25 @@ class HumanHeroFactory {
 
       playVictoryDance: () => {
         isDancing = true;
-        if (walkAction) walkAction.timeScale = 1.0;
+        if (walkAction) walkAction.stop();
+        if (danceAction) {
+          danceAction.reset();
+          danceAction.play();
+          danceAction.timeScale = 1.0;
+        }
         // Raise gun triumphantly into air
-        gunContainer.position.set(-0.1, 1.85, 0.1);
-        gunContainer.rotation.set(0.6, 0, 0.4);
+        gunContainer.position.set(-0.2, 1.85, 0.12);
+        gunContainer.rotation.set(0.7, 0.2, 0.35);
       },
 
       stopVictoryDance: () => {
         isDancing = false;
-        if (walkAction) walkAction.timeScale = 0.5;
+        if (danceAction) danceAction.stop();
+        if (walkAction) {
+          walkAction.reset();
+          walkAction.play();
+          walkAction.timeScale = 0.6;
+        }
         gunContainer.position.set(baseGunX, baseGunY, baseGunZ);
         gunContainer.rotation.set(0, 0, 0);
       },
@@ -566,7 +592,7 @@ class HumanHeroFactory {
 
         // Laser vector in local coordinates
         const localTarget = gunContainer.worldToLocal(targetPoint.clone());
-        const laserPoints = [new THREE.Vector3(0, 0.03, 1.45), localTarget];
+        const laserPoints = [new THREE.Vector3(0, 0.02, 0.98), localTarget];
         aimLaser.geometry.setFromPoints(laserPoints);
       },
     };

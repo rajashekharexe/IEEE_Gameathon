@@ -167,22 +167,22 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
         </div>
       </div>
 
-      {/* Center Dynamic Mission Banners & Alerts */}
-      <div className="self-center flex flex-col items-center gap-3 my-auto pointer-events-none">
+      {/* Top Floating Dynamic Mission Banners & Alerts (Never blocks crosshair / center view) */}
+      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none w-full max-w-xl px-4">
         {/* Dynamic Mission Progression Banner */}
         {stats.activeBanner && (
-          <div className="flex flex-col items-center animate-bounce">
+          <div className="flex flex-col items-center transition-all duration-300">
             <div
-              className={`px-8 py-4 rounded-2xl backdrop-blur-xl border flex items-center gap-4 shadow-2xl transition-all duration-300 ${
+              className={`px-5 py-2.5 rounded-xl backdrop-blur-xl border flex items-center gap-3.5 shadow-2xl transition-all duration-300 ${
                 stats.activeBanner.type === 'SUCCESS'
-                  ? 'bg-emerald-950/95 border-emerald-400 text-emerald-100 shadow-[0_0_40px_rgba(16,185,129,0.7)]'
+                  ? 'bg-emerald-950/95 border-emerald-400 text-emerald-100 shadow-[0_0_25px_rgba(16,185,129,0.5)]'
                   : stats.activeBanner.type === 'ALERT'
-                  ? 'bg-rose-950/95 border-rose-500 text-rose-100 shadow-[0_0_40px_rgba(244,63,94,0.7)]'
-                  : 'bg-cyan-950/95 border-cyan-400 text-cyan-100 shadow-[0_0_40px_rgba(6,182,212,0.7)]'
+                  ? 'bg-rose-950/95 border-rose-500 text-rose-100 shadow-[0_0_25px_rgba(244,63,94,0.5)]'
+                  : 'bg-cyan-950/95 border-cyan-400 text-cyan-100 shadow-[0_0_25px_rgba(6,182,212,0.5)]'
               }`}
             >
               <div
-                className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg ${
+                className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold shrink-0 ${
                   stats.activeBanner.type === 'SUCCESS'
                     ? 'bg-emerald-500/25 text-emerald-300'
                     : stats.activeBanner.type === 'ALERT'
@@ -191,18 +191,18 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
                 }`}
               >
                 {stats.activeBanner.type === 'SUCCESS' ? (
-                  <CheckCircle2 className="w-6 h-6" />
+                  <CheckCircle2 className="w-5 h-5" />
                 ) : stats.activeBanner.type === 'ALERT' ? (
-                  <AlertTriangle className="w-6 h-6" />
+                  <AlertTriangle className="w-5 h-5" />
                 ) : (
-                  <Flag className="w-6 h-6" />
+                  <Flag className="w-5 h-5" />
                 )}
               </div>
               <div>
-                <div className="text-[11px] font-mono font-bold tracking-widest uppercase opacity-85">
+                <div className="text-[10px] font-mono font-bold tracking-widest uppercase opacity-80">
                   {stats.activeBanner.title}
                 </div>
-                <div className="text-lg font-mono font-black tracking-wide">
+                <div className="text-sm font-mono font-bold tracking-wide">
                   {stats.activeBanner.subtitle}
                 </div>
               </div>
@@ -211,19 +211,19 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
         )}
 
         {godMode && (
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500/20 border border-amber-500/60 rounded-xl text-amber-300 text-xs font-mono font-bold animate-pulse shadow-lg backdrop-blur-md">
-            <ShieldAlert className="w-4 h-4" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/60 rounded-lg text-amber-300 text-[11px] font-mono font-bold shadow-md backdrop-blur-md">
+            <ShieldAlert className="w-3.5 h-3.5" />
             <span>JUDGE DEMO MODE ACTIVE (INVULNERABLE)</span>
           </div>
         )}
         {stats.bossAlert && (
-          <div className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-rose-950/90 border border-rose-500 text-rose-200 text-sm font-mono font-black animate-pulse shadow-2xl tracking-wider">
-            <AlertTriangle className="w-5 h-5 text-rose-400 animate-bounce" />
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-rose-950/90 border border-rose-500 text-rose-200 text-xs font-mono font-black animate-pulse shadow-xl tracking-wider">
+            <AlertTriangle className="w-4 h-4 text-rose-400" />
             <span>{stats.bossAlert}</span>
           </div>
         )}
         {stats.isTitanAllied && stats.activeChassis === 'UNIT7' && !stats.bossActive && (
-          <div className="px-4 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold animate-bounce shadow-lg">
+          <div className="px-4 py-1.5 rounded-full bg-cyan-500/25 border border-cyan-400 text-cyan-200 text-xs font-mono font-bold shadow-lg backdrop-blur-md">
             ⚡ TITAN OVERRIDDEN! GET CLOSE & PRESS [E] TO EMBODY!
           </div>
         )}

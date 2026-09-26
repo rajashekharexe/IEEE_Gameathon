@@ -84,6 +84,100 @@ export class FactoryArenaBuilder {
     return texture;
   }
 
+  // High-Detail Procedural Sci-Fi Military Cargo Crate Texture
+  private createSciFiCrateTexture(isAmmo: boolean): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+
+    // 1. Dark Brushed Metal Armor Base
+    ctx.fillStyle = isAmmo ? '#18202c' : '#1e293b';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // 2. Corrugated / Ribbed Steel Inset Panel
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(32, 48, 448, 416);
+
+    // Subtle brushed metal grooves
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    for (let y = 64; y < 450; y += 24) {
+      ctx.beginPath();
+      ctx.moveTo(40, y);
+      ctx.lineTo(472, y);
+      ctx.stroke();
+    }
+
+    // 3. Diagonal Hazard Caution Borders (Top & Bottom Bands)
+    const drawHazardBand = (yPos: number) => {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, yPos, 512, 28);
+      ctx.fillStyle = '#f59e0b';
+      for (let x = -28; x < 540; x += 36) {
+        ctx.beginPath();
+        ctx.moveTo(x, yPos + 28);
+        ctx.lineTo(x + 18, yPos + 28);
+        ctx.lineTo(x + 36, yPos);
+        ctx.lineTo(x + 18, yPos);
+        ctx.closePath();
+        ctx.fill();
+      }
+    };
+    drawHazardBand(10);
+    drawHazardBand(474);
+
+    // 4. Military Stencil Graphics & Cargo Decals
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '900 24px monospace';
+    ctx.fillText(isAmmo ? 'MK-IV ORDNANCE // SEC-9' : 'OVERLINK HEAVY LOGISTICS', 48, 120);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '700 16px monospace';
+    ctx.fillText(isAmmo ? 'AP 12.7mm ARMOR PIERCING' : 'CLASSIFIED HYDRAULIC CELLS', 48, 150);
+    ctx.fillText('HAZARD CLASS 4 // AUTONOMOUS', 48, 175);
+
+    // Center Warning Stencil Icon
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(360, 95, 90, 90);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = '900 42px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', 405, 158);
+    ctx.textAlign = 'left';
+
+    // 5. Digital Barcode & Data Matrix Tag
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(48, 380, 180, 50);
+    ctx.fillStyle = '#0f172a';
+    for (let bx = 56; bx < 220; bx += 8) {
+      const barW = bx % 16 === 0 ? 5 : 2;
+      ctx.fillRect(bx, 386, barW, 38);
+    }
+
+    // 6. Corner Heavy Rivets
+    ctx.fillStyle = '#64748b';
+    [
+      [20, 20],
+      [492, 20],
+      [20, 492],
+      [492, 492],
+      [20, 256],
+      [492, 256],
+    ].forEach(([rx, ry]) => {
+      ctx.beginPath();
+      ctx.arc(rx, ry, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#090d16';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+  }
+
   // Build the complete factory arena
   public build(scene: THREE.Scene): ArenaComponents {
     // 1. Reflective Metallic Floor (160m x 160m Expansive Industrial Warzone)
@@ -120,50 +214,104 @@ export class FactoryArenaBuilder {
     catwalk.add(platform);
     scene.add(catwalk);
 
-    // 3. Heavy Industrial Cover Crates (Ribbed metal shipping crates with hazard stripes)
+    // 3. Heavy Industrial Cover Crates (High-detail sci-fi military freight modules)
     const crates: THREE.Group[] = [];
-    const crateBodyMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.45,
-      metalness: 0.65,
-    });
-    const crateFrameMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.35,
-      metalness: 0.75,
-    });
+    const ammoTexture = this.createSciFiCrateTexture(true);
+    const cargoTexture = this.createSciFiCrateTexture(false);
 
-    const createIndustrialCrate = (w: number, h: number, d: number) => {
+    const ammoMat = new THREE.MeshStandardMaterial({
+      map: ammoTexture,
+      metalness: 0.85,
+      roughness: 0.28,
+    });
+    const cargoMat = new THREE.MeshStandardMaterial({
+      map: cargoTexture,
+      metalness: 0.85,
+      roughness: 0.28,
+    });
+    const darkFrameMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      metalness: 0.9,
+      roughness: 0.2,
+    });
+    const chromeHandleMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      metalness: 0.95,
+      roughness: 0.15,
+    });
+    const cyanLedMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const emeraldLedMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+
+    const createIndustrialCrate = (w: number, h: number, d: number, index: number) => {
       const cGroup = new THREE.Group();
-      // Main box
-      const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), crateBodyMat);
+      const isAmmo = index % 2 === 0;
+
+      // 1. Main Textured Armor Box
+      const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), isAmmo ? ammoMat : cargoMat);
       box.castShadow = true;
       box.receiveShadow = true;
       cGroup.add(box);
 
-      // Ribbed reinforcement edges
-      const edgeTop = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.15, d + 0.1), crateFrameMat);
-      edgeTop.position.y = h / 2;
-      cGroup.add(edgeTop);
+      // 2. Heavy Perimeter Edge Armor Framing (Dark Titanium)
+      const topFrame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, 0.14, d + 0.08), darkFrameMat);
+      topFrame.position.y = h / 2;
+      topFrame.castShadow = true;
+      cGroup.add(topFrame);
 
-      const edgeBottom = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.15, d + 0.1), crateFrameMat);
-      edgeBottom.position.y = -h / 2;
-      cGroup.add(edgeBottom);
+      const bottomFrame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, 0.14, d + 0.08), darkFrameMat);
+      bottomFrame.position.y = -h / 2;
+      bottomFrame.castShadow = true;
+      cGroup.add(bottomFrame);
 
-      // Yellow hazard corner corner brackets
-      const bracketGeo = new THREE.BoxGeometry(0.2, h, 0.2);
-      const b1 = new THREE.Mesh(bracketGeo, yellowRailMat);
-      b1.position.set(w / 2, 0, d / 2);
-      cGroup.add(b1);
-      const b2 = new THREE.Mesh(bracketGeo, yellowRailMat);
-      b2.position.set(-w / 2, 0, d / 2);
-      cGroup.add(b2);
-      const b3 = new THREE.Mesh(bracketGeo, yellowRailMat);
-      b3.position.set(w / 2, 0, -d / 2);
-      cGroup.add(b3);
-      const b4 = new THREE.Mesh(bracketGeo, yellowRailMat);
-      b4.position.set(-w / 2, 0, -d / 2);
-      cGroup.add(b4);
+      // 3. Stacking Alignment Cleats on Top Four Corners
+      const cleatGeo = new THREE.BoxGeometry(0.35, 0.15, 0.35);
+      [
+        [w / 2 - 0.2, d / 2 - 0.2],
+        [-w / 2 + 0.2, d / 2 - 0.2],
+        [w / 2 - 0.2, -d / 2 + 0.2],
+        [-w / 2 + 0.2, -d / 2 + 0.2],
+      ].forEach(([cx, cz]) => {
+        const cleat = new THREE.Mesh(cleatGeo, darkFrameMat);
+        cleat.position.set(cx, h / 2 + 0.08, cz);
+        cleat.castShadow = true;
+        cGroup.add(cleat);
+      });
+
+      // 4. Yellow OSHA Hazard Corner Armor Brackets
+      const bracketGeo = new THREE.BoxGeometry(0.25, h, 0.25);
+      [
+        [w / 2, d / 2],
+        [-w / 2, d / 2],
+        [w / 2, -d / 2],
+        [-w / 2, -d / 2],
+      ].forEach(([bx, bz]) => {
+        const bracket = new THREE.Mesh(bracketGeo, yellowRailMat);
+        bracket.position.set(bx, 0, bz);
+        bracket.castShadow = true;
+        cGroup.add(bracket);
+      });
+
+      // 5. Recessed Heavy Lifting Handles on Left and Right Sides
+      [-w / 2 - 0.02, w / 2 + 0.02].forEach((sideX) => {
+        const handleWell = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.45, 0.8), darkFrameMat);
+        handleWell.position.set(sideX, 0, 0);
+        cGroup.add(handleWell);
+
+        const handleBar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.65, 8), chromeHandleMat);
+        handleBar.position.set(sideX * 1.01, 0, 0);
+        cGroup.add(handleBar);
+      });
+
+      // 6. Electronic Lock Keypad & Status LED on Front & Back
+      [-d / 2 - 0.03, d / 2 + 0.03].forEach((faceZ) => {
+        const lockChassis = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.45, 0.06), darkFrameMat);
+        lockChassis.position.set(0, 0, faceZ);
+        cGroup.add(lockChassis);
+
+        const ledSlit = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.08), isAmmo ? cyanLedMat : emeraldLedMat);
+        ledSlit.position.set(0, 0.08, faceZ);
+        cGroup.add(ledSlit);
+      });
 
       return cGroup;
     };
@@ -191,8 +339,8 @@ export class FactoryArenaBuilder {
       [16, 1.6, 36, 4.0, 3.2, 4.0],
     ];
 
-    crateLocations.forEach(([x, y, z, w, h, d]) => {
-      const c = createIndustrialCrate(w, h, d);
+    crateLocations.forEach(([x, y, z, w, h, d], index) => {
+      const c = createIndustrialCrate(w, h, d, index);
       c.position.set(x, y, z);
       scene.add(c);
       crates.push(c);

@@ -64,22 +64,34 @@ class EnforcerRobotFactory {
             }
           });
 
-          // Scale and position model so height is ~2.6m tall and pivot is at the ground
+          // Automatically compute model bounding box, scale to 2.8m height, and center
           const masterContainer = new THREE.Group();
-          rawGroup.scale.setScalar(0.015);
-          // Center model on Y = 0
-          rawGroup.position.set(0, 0, 0);
+          const initialBox = new THREE.Box3().setFromObject(rawGroup);
+          const size = new THREE.Vector3();
+          initialBox.getSize(size);
+
+          const targetHeight = 2.8;
+          const scaleFactor = targetHeight / (size.y || 1);
+          rawGroup.scale.setScalar(scaleFactor);
+
+          // Center horizontally and place feet flat at ground level (Y = 0)
+          const scaledBox = new THREE.Box3().setFromObject(rawGroup);
+          const scaledCenter = new THREE.Vector3();
+          scaledBox.getCenter(scaledCenter);
+          rawGroup.position.x = -scaledCenter.x;
+          rawGroup.position.y = -scaledBox.min.y;
+          rawGroup.position.z = -scaledCenter.z;
           masterContainer.add(rawGroup);
 
-          // Add glowing crimson visor sensor
-          const eyeGeo = new THREE.BoxGeometry(0.3, 0.08, 0.12);
+          // Add glowing crimson visor sensor at robot head height
+          const eyeGeo = new THREE.BoxGeometry(0.35, 0.1, 0.15);
           const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
           const eye = new THREE.Mesh(eyeGeo, eyeMat);
-          eye.position.set(0, 2.2, 0.45);
+          eye.position.set(0, targetHeight * 0.88, 0.5);
           masterContainer.add(eye);
 
-          const eyeLight = new THREE.PointLight(0xff0044, 3.0, 10);
-          eyeLight.position.set(0, 2.2, 0.6);
+          const eyeLight = new THREE.PointLight(0xff0044, 3.5, 12);
+          eyeLight.position.set(0, targetHeight * 0.88, 0.7);
           masterContainer.add(eyeLight);
 
           this.cachedModel = masterContainer;

@@ -677,49 +677,153 @@ export class EntityModelFactory {
     };
   }
 
-  // 4. SCOUT RECON BOTS (AGILE RED SWARM AUTOMATONS)
+  // 4. COMBAT SCOUT ROBOTS (AGILE BIPEDAL MECHANICAL STRIKER ROBOTS - NOT BALLS!)
   public createScoutBot() {
     const group = new THREE.Group();
 
-    const chassisMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.3,
+    // High-tech military robotic materials
+    const darkChassisMat = new THREE.MeshStandardMaterial({
+      color: 0x18181b, // Dark carbon alloy
+      roughness: 0.35,
       metalness: 0.85,
+    });
+    const gunmetalMat = new THREE.MeshStandardMaterial({
+      color: 0x3f3f46,
+      roughness: 0.25,
+      metalness: 0.9,
+    });
+    const orangeHazardMat = new THREE.MeshStandardMaterial({
+      color: 0xf97316, // Industrial amber/orange accent
+      roughness: 0.4,
+      metalness: 0.4,
     });
     const redGlowMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
 
-    // Spherical Central Eye Drone
-    const bodyGeo = new THREE.SphereGeometry(0.6, 16, 16);
-    const body = new THREE.Mesh(bodyGeo, chassisMat);
-    body.position.y = 1.0;
-    body.castShadow = true;
-    group.add(body);
+    // Torso group
+    const torso = new THREE.Group();
+    torso.position.y = 1.1;
 
-    // Glowing Crimson Ocular Sensor
-    const eyeGeo = new THREE.SphereGeometry(0.25, 12, 12);
+    // 1. Armored Angular Chassis Core
+    const chestGeo = new THREE.BoxGeometry(0.7, 0.65, 0.55);
+    const chest = new THREE.Mesh(chestGeo, darkChassisMat);
+    chest.castShadow = true;
+    torso.add(chest);
+
+    // Front Chest Armor Plate
+    const frontPlate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.15), gunmetalMat);
+    frontPlate.position.set(0, 0, 0.26);
+    frontPlate.castShadow = true;
+    torso.add(frontPlate);
+
+    // Hazard orange trim stripes on chest
+    const hazardStripe = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.08, 0.16), orangeHazardMat);
+    hazardStripe.position.set(0, -0.15, 0.265);
+    torso.add(hazardStripe);
+
+    // 2. Robotic Head Unit with Glowing Crimson Visor
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.38), darkChassisMat);
+    head.position.set(0, 0.45, 0.05);
+    head.castShadow = true;
+    torso.add(head);
+
+    // Crimson Sensor Visor Eye (Slit)
+    const eyeGeo = new THREE.BoxGeometry(0.32, 0.1, 0.1);
     const eye = new THREE.Mesh(eyeGeo, redGlowMat);
-    eye.position.set(0, 1.0, 0.45);
-    group.add(eye);
+    eye.position.set(0, 0.46, 0.22);
+    torso.add(eye);
 
-    const eyeLight = new THREE.PointLight(0xff0044, 2.0, 8);
-    eyeLight.position.set(0, 1.0, 0.6);
-    group.add(eyeLight);
+    const eyeLight = new THREE.PointLight(0xff0044, 2.8, 8);
+    eyeLight.position.set(0, 0.46, 0.45);
+    torso.add(eyeLight);
 
-    // 3 Spider-like Hover Limbs
-    for (let i = 0; i < 3; i++) {
-      const legGeo = new THREE.CylinderGeometry(0.04, 0.06, 0.8, 6);
-      const leg = new THREE.Mesh(legGeo, chassisMat);
-      const angle = (i * Math.PI * 2) / 3;
-      leg.position.set(Math.cos(angle) * 0.5, 0.5, Math.sin(angle) * 0.5);
-      leg.rotation.z = Math.cos(angle) * 0.4;
-      leg.rotation.x = Math.sin(angle) * 0.4;
-      group.add(leg);
-    }
+    // Sensor Antenna
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.3, 6), gunmetalMat);
+    antenna.position.set(0.14, 0.72, -0.05);
+    torso.add(antenna);
 
+    // 3. Back-Mounted Micro-Reactor Power Pack
+    const reactor = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.48, 12), gunmetalMat);
+    reactor.position.set(0, 0.05, -0.32);
+    reactor.castShadow = true;
+    torso.add(reactor);
+
+    const exhaustGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.05, 12), redGlowMat);
+    exhaustGlow.position.set(0, -0.2, -0.32);
+    torso.add(exhaustGlow);
+
+    // 4. Dual Shoulder-Mounted Rapid Autocannons
+    [-0.42, 0.42].forEach((xSide) => {
+      const cannonMount = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.18, 0.28), darkChassisMat);
+      cannonMount.position.set(xSide, 0.22, 0.05);
+      torso.add(cannonMount);
+
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 8), gunmetalMat);
+      barrel.rotateX(Math.PI / 2);
+      barrel.position.set(xSide, 0.22, 0.35);
+      barrel.castShadow = true;
+      torso.add(barrel);
+    });
+
+    group.add(torso);
+
+    // 5. Articulated Hydraulic Robotic Legs (Left & Right Pivots)
+    const legGeo = new THREE.BoxGeometry(0.14, 0.55, 0.18);
+    const footGeo = new THREE.BoxGeometry(0.22, 0.12, 0.35);
+
+    // Left Leg
+    const leftLegPivot = new THREE.Group();
+    leftLegPivot.position.set(-0.25, 0.85, 0);
+
+    const leftUpperLeg = new THREE.Mesh(legGeo, gunmetalMat);
+    leftUpperLeg.position.set(0, -0.25, -0.05);
+    leftUpperLeg.rotation.x = 0.25; // reverse knee bend
+    leftUpperLeg.castShadow = true;
+    leftLegPivot.add(leftUpperLeg);
+
+    const leftLowerLeg = new THREE.Mesh(legGeo, darkChassisMat);
+    leftLowerLeg.position.set(0, -0.65, 0.08);
+    leftLowerLeg.rotation.x = -0.3;
+    leftLowerLeg.castShadow = true;
+    leftLegPivot.add(leftLowerLeg);
+
+    const leftFoot = new THREE.Mesh(footGeo, gunmetalMat);
+    leftFoot.position.set(0, -0.85, 0.12);
+    leftFoot.castShadow = true;
+    leftLegPivot.add(leftFoot);
+
+    group.add(leftLegPivot);
+
+    // Right Leg
+    const rightLegPivot = new THREE.Group();
+    rightLegPivot.position.set(0.25, 0.85, 0);
+
+    const rightUpperLeg = new THREE.Mesh(legGeo, gunmetalMat);
+    rightUpperLeg.position.set(0, -0.25, -0.05);
+    rightUpperLeg.rotation.x = 0.25;
+    rightUpperLeg.castShadow = true;
+    rightLegPivot.add(rightUpperLeg);
+
+    const rightLowerLeg = new THREE.Mesh(legGeo, darkChassisMat);
+    rightLowerLeg.position.set(0, -0.65, 0.08);
+    rightLowerLeg.rotation.x = -0.3;
+    rightLowerLeg.castShadow = true;
+    rightLegPivot.add(rightLowerLeg);
+
+    const rightFoot = new THREE.Mesh(footGeo, gunmetalMat);
+    rightFoot.position.set(0, -0.85, 0.12);
+    rightFoot.castShadow = true;
+    rightLegPivot.add(rightFoot);
+
+    group.add(rightLegPivot);
+
+    // Animated robotic walking stride
     const animateBob = (time: number) => {
-      body.position.y = 1.0 + Math.sin(time * 4) * 0.12;
-      eye.position.y = 1.0 + Math.sin(time * 4) * 0.12;
-      eyeLight.position.y = 1.0 + Math.sin(time * 4) * 0.12;
+      const step = Math.sin(time * 8);
+      leftLegPivot.rotation.x = step * 0.45;
+      rightLegPivot.rotation.x = -step * 0.45;
+      torso.position.y = 1.1 + Math.abs(Math.sin(time * 8)) * 0.08;
+      torso.rotation.z = Math.sin(time * 4) * 0.04;
+      eyeLight.intensity = 2.4 + Math.sin(time * 12) * 0.6;
     };
 
     return {

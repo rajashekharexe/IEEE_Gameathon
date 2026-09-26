@@ -91,17 +91,18 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     // 1. SCENE SETUP
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060914);
-    scene.fog = new THREE.FogExp2(0x060914, 0.022);
+    scene.background = new THREE.Color(0x060a14);
+    scene.fog = new THREE.FogExp2(0x060a14, 0.016);
 
-    // 2. CAMERA, SCREEN SHAKE & VFX
+    // 2. CAMERA, SCREEN SHAKE & VFX (Cinematic Over-The-Shoulder Camera)
     const camera = new THREE.PerspectiveCamera(
-      55,
+      52,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 14, 18);
+    // Initial camera placement matching Image 1: behind Unit-7's left shoulder looking forward at Titan
+    camera.position.set(-6.8, 2.4, 8.2);
     const screenShake = new ScreenShake();
     const vfx = new VFXSystem(scene);
 
@@ -113,16 +114,21 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // 4. LIGHTING
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+    // 4. LIGHTING (Moody Cinematic Sci-Fi Palette from Concept Art)
+    const ambientLight = new THREE.AmbientLight(0x0c152a, 1.2);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0x38bdf8, 1.8);
-    dirLight.position.set(25, 35, 20);
+    const dirLight = new THREE.DirectionalLight(0x38bdf8, 2.6);
+    dirLight.position.set(20, 30, 15);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
+
+    // Warm Industrial Furnace Rim Light from deep factory floor
+    const rimLight = new THREE.DirectionalLight(0xf59e0b, 1.6);
+    rimLight.position.set(-15, 20, -25);
+    scene.add(rimLight);
 
     // 5. BUILD FACTORY ARENA
     const arena = factoryArena.build(scene);
@@ -132,23 +138,25 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     airlock.position.set(0, 0, 24);
     scene.add(airlock);
 
-    // 7. SPAWN UNIT-7 (PLAYER)
+    // 7. SPAWN UNIT-7 (PLAYER) - Positioned on catwalk facing forward
     const unit7: Unit7Entity = entityFactory.createUnit7();
-    unit7.group.position.set(-6, 0, 4);
+    unit7.group.position.set(-5, 0.4, 4);
+    unit7.group.rotation.y = -0.35;
     scene.add(unit7.group);
 
-    // 8. SPAWN MK-IV TITAN MECH
+    // 8. SPAWN MK-IV TITAN MECH - Massive in central foundry facing catwalk
     const titan: TitanMechEntity = entityFactory.createTitanMech();
-    titan.group.position.set(4, 0, -10);
+    titan.group.position.set(3.5, 0, -8);
+    titan.group.rotation.y = Math.PI - 0.35;
     scene.add(titan.group);
 
-    // 9. SPAWN TRAPPED SCIENTISTS
+    // 9. SPAWN TRAPPED SCIENTISTS - Right side behind crates
     const scientists: ScientistEntity[] = [
       entityFactory.createScientist(),
       entityFactory.createScientist(),
     ];
-    scientists[0].group.position.set(11.5, 0, 9.8);
-    scientists[1].group.position.set(-11.5, 0, -4.5);
+    scientists[0].group.position.set(9.5, 0, 7.5);
+    scientists[1].group.position.set(13.2, 0, 7.5);
     scientists.forEach((sc) => scene.add(sc.group));
 
     // 10. SPAWN SCOUT ENEMY BOTS
@@ -258,19 +266,22 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       const ndcX = (mouse.x / window.innerWidth) * 2 - 1;
       const ndcY = -(mouse.y / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
-      raycaster.ray.intersectPlane(mousePlane, mouseWorldPos);
+      let hitPos = raycaster.ray.intersectPlane(mousePlane, mouseWorldPos);
+      if (!hitPos) {
+        hitPos = raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, 25);
+      }
 
       // Active entity reference (Unit-7 or Titan)
       const activeObj = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
 
-      if (mouseWorldPos) {
+      if (hitPos) {
         const targetAngle = Math.atan2(
-          mouseWorldPos.x - activeObj.position.x,
-          mouseWorldPos.z - activeObj.position.z
+          hitPos.x - activeObj.position.x,
+          hitPos.z - activeObj.position.z
         );
         activeObj.rotation.y = targetAngle;
         if (s.activeChassis === 'UNIT7') {
-          unit7.updateLaserAim(mouseWorldPos);
+          unit7.updateLaserAim(hitPos);
         }
       }
 
@@ -317,15 +328,47 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       activeObj.position.x = Math.max(-36, Math.min(36, activeObj.position.x));
       activeObj.position.z = Math.max(-36, Math.min(36, activeObj.position.z));
 
-      // D. CAMERA FOLLOW WITH SCREEN SHAKE
+      // D. CINEMATIC OVER-THE-SHOULDER CAMERA FOLLOW (EXACT IMAGE 1 FRAMING)
       screenShake.update(delta * 2.2);
-      const camTargetX = activeObj.position.x;
-      const camTargetZ = activeObj.position.z + (s.activeChassis === 'TITAN' ? 20 : 16);
-      camera.position.x += (camTargetX - camera.position.x) * 0.08 + screenShake.offsetX * 0.035;
-      camera.position.z += (camTargetZ - camera.position.z) * 0.08;
-      camera.position.y = (s.activeChassis === 'TITAN' ? 15 : 12) + screenShake.offsetY * 0.035;
+
+      if (s.activeChassis === 'UNIT7') {
+        const aimAngle = activeObj.rotation.y;
+
+        // Position camera behind Unit-7's left shoulder: 4.4 units back, 1.4 units left, 2.3 units high
+        const desiredCamX = activeObj.position.x - Math.sin(aimAngle) * 4.4 - Math.cos(aimAngle) * 1.4;
+        const desiredCamZ = activeObj.position.z - Math.cos(aimAngle) * 4.4 + Math.sin(aimAngle) * 1.4;
+        const desiredCamY = activeObj.position.y + 2.3;
+
+        camera.position.x += (desiredCamX - camera.position.x) * 0.12 + screenShake.offsetX * 0.03;
+        camera.position.y += (desiredCamY - camera.position.y) * 0.12 + screenShake.offsetY * 0.03;
+        camera.position.z += (desiredCamZ - camera.position.z) * 0.12;
+
+        // Look at aim crosshair point 14 units ahead
+        const lookTarget = new THREE.Vector3(
+          activeObj.position.x + Math.sin(aimAngle) * 14 + Math.cos(aimAngle) * 0.5,
+          activeObj.position.y + 2.1,
+          activeObj.position.z + Math.cos(aimAngle) * 14 - Math.sin(aimAngle) * 0.5
+        );
+        camera.lookAt(lookTarget);
+      } else {
+        // Massive MK-IV Titan Camera
+        const aimAngle = activeObj.rotation.y;
+        const desiredCamX = activeObj.position.x - Math.sin(aimAngle) * 8.5;
+        const desiredCamZ = activeObj.position.z - Math.cos(aimAngle) * 8.5;
+        const desiredCamY = activeObj.position.y + 5.2;
+
+        camera.position.x += (desiredCamX - camera.position.x) * 0.08 + screenShake.offsetX * 0.03;
+        camera.position.y += (desiredCamY - camera.position.y) * 0.08 + screenShake.offsetY * 0.03;
+        camera.position.z += (desiredCamZ - camera.position.z) * 0.08;
+
+        const lookTarget = new THREE.Vector3(
+          activeObj.position.x + Math.sin(aimAngle) * 16,
+          activeObj.position.y + 3.8,
+          activeObj.position.z + Math.cos(aimAngle) * 16
+        );
+        camera.lookAt(lookTarget);
+      }
       camera.rotation.z = screenShake.angle * 0.12;
-      camera.lookAt(activeObj.position.x, activeObj.position.y + 1.2, activeObj.position.z - 2);
 
       // E. BODY-SWAPPING (EMBODY TITAN)
       if (swapCooldown > 0) swapCooldown -= delta;

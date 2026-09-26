@@ -91,7 +91,7 @@ export class NeuralTetherEngine {
 
     this.state.origin.copy(origin);
     const targetPos = this.state.target.position.clone();
-    targetPos.y += 3.2; // Chest height of Titan mech
+    targetPos.y += 4.55; // Searing chest reactor of Titan mech
 
     // Fill hacking progress
     this.state.progress = Math.min(100, this.state.progress + delta * 24);
@@ -104,10 +104,11 @@ export class NeuralTetherEngine {
 
       if (i > 0 && i < this.pointsCount - 1) {
         // Add high-frequency electrical jitter
-        const jitterFreq = time * 25 + i * 2;
-        const jitterX = Math.sin(jitterFreq) * 0.35 * Math.sin(t * Math.PI);
-        const jitterY = Math.cos(jitterFreq * 1.3) * 0.35 * Math.sin(t * Math.PI);
-        const jitterZ = Math.sin(jitterFreq * 0.7) * 0.25 * Math.sin(t * Math.PI);
+        const jitterFreq = time * 35 + i * 2.5;
+        const arcAmp = Math.sin(t * Math.PI) * 0.75;
+        const jitterX = Math.sin(jitterFreq) * arcAmp;
+        const jitterY = Math.cos(jitterFreq * 1.4) * arcAmp;
+        const jitterZ = Math.sin(jitterFreq * 0.8) * (arcAmp * 0.5);
         pos.add(new THREE.Vector3(jitterX, jitterY, jitterZ));
       }
       points.push(pos);

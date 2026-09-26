@@ -103,31 +103,31 @@ export class FactoryArenaBuilder {
       metalness: 0.5,
     });
 
-    // Catwalk Platform Base (Where Unit-7 begins)
-    const platGeo = new THREE.BoxGeometry(16, 0.4, 10);
+    // Catwalk Platform Base (Flush Diamond-Plate floor zone where Unit-7 begins)
+    const platGeo = new THREE.BoxGeometry(16, 0.05, 10);
     const platform = new THREE.Mesh(platGeo, steelMat);
-    platform.position.set(-6, 0.2, 5);
+    platform.position.set(-6, 0.02, 5);
     platform.receiveShadow = true;
     catwalk.add(platform);
 
-    // Yellow Pipe Safety Railings
+    // Yellow Pipe Safety Railings placed on the perimeter edge (behind player)
     const pipeGeoH = new THREE.CylinderGeometry(0.06, 0.06, 16, 8);
     pipeGeoH.rotateZ(Math.PI / 2);
     const pipeGeoV = new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8);
 
-    // Top & Mid horizontal rails
+    // Back perimeter rails (at z = 9.8 behind player, never blocking forward view)
     const topRail = new THREE.Mesh(pipeGeoH, yellowRailMat);
-    topRail.position.set(-6, 1.4, 0.1);
+    topRail.position.set(-6, 1.4, 9.8);
     catwalk.add(topRail);
 
     const midRail = new THREE.Mesh(pipeGeoH, yellowRailMat);
-    midRail.position.set(-6, 0.8, 0.1);
+    midRail.position.set(-6, 0.8, 9.8);
     catwalk.add(midRail);
 
-    // Vertical posts along railing
+    // Vertical posts along back perimeter railing
     for (let x = -14; x <= 2; x += 2.6) {
       const post = new THREE.Mesh(pipeGeoV, yellowRailMat);
-      post.position.set(x, 0.8, 0.1);
+      post.position.set(x, 0.8, 9.8);
       catwalk.add(post);
     }
     scene.add(catwalk);
@@ -274,7 +274,7 @@ export class FactoryArenaBuilder {
     // 7. Revolving Emergency Red Sirens (with intense red casting lights)
     const sirens: { light: THREE.PointLight; mesh: THREE.Mesh; baseAngle: number }[] = [];
     const sirenPositions: [number, number, number][] = [
-      [-6, 1.6, 0.2], // Mounted on catwalk railing
+      [-18, 4.0, 4],   // Mounted on left perimeter wall
       [11, 4.9, 9],    // Mounted atop stacked crate
       [-14, 2.8, -5],  // Mounted atop left crate
       [4, 3.8, -14],   // Mounted on background machinery

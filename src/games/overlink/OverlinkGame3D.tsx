@@ -101,8 +101,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       0.1,
       1000
     );
-    // Initial camera placement matching Image 1: behind Unit-7's left shoulder looking forward at Titan
-    camera.position.set(-6.8, 2.4, 8.2);
+    // Initial camera placement: elevated over-the-shoulder chase view
+    camera.position.set(-7.0, 3.6, 10.8);
     const screenShake = new ScreenShake();
     const vfx = new VFXSystem(scene);
 
@@ -140,7 +140,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     // 7. SPAWN UNIT-7 (PLAYER) - Positioned on catwalk facing forward
     const unit7: Unit7Entity = entityFactory.createUnit7();
-    unit7.group.position.set(-5, 0.4, 4);
+    unit7.group.position.set(-5, 0, 4);
     unit7.group.rotation.y = -0.35;
     scene.add(unit7.group);
 
@@ -328,47 +328,46 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       activeObj.position.x = Math.max(-36, Math.min(36, activeObj.position.x));
       activeObj.position.z = Math.max(-36, Math.min(36, activeObj.position.z));
 
-      // D. CINEMATIC OVER-THE-SHOULDER CAMERA FOLLOW (EXACT IMAGE 1 FRAMING)
+      // D. ROCK-SOLID CINEMATIC THIRD-PERSON CAMERA (FOLLOWS ROBOT MOVEMENT WITHOUT JITTER)
       screenShake.update(delta * 2.2);
 
       if (s.activeChassis === 'UNIT7') {
-        const aimAngle = activeObj.rotation.y;
+        // Elevated over-the-shoulder chase view: 2.0 units left, 3.8 units up, 6.8 units behind
+        const targetCamX = activeObj.position.x - 2.0;
+        const targetCamY = activeObj.position.y + 3.8;
+        const targetCamZ = activeObj.position.z + 6.8;
 
-        // Position camera behind Unit-7's left shoulder: 4.4 units back, 1.4 units left, 2.3 units high
-        const desiredCamX = activeObj.position.x - Math.sin(aimAngle) * 4.4 - Math.cos(aimAngle) * 1.4;
-        const desiredCamZ = activeObj.position.z - Math.cos(aimAngle) * 4.4 + Math.sin(aimAngle) * 1.4;
-        const desiredCamY = activeObj.position.y + 2.3;
+        const lerpFactor = Math.min(1.0, delta * 8.0);
+        camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.025;
+        camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.025;
+        camera.position.z += (targetCamZ - camera.position.z) * lerpFactor;
 
-        camera.position.x += (desiredCamX - camera.position.x) * 0.12 + screenShake.offsetX * 0.03;
-        camera.position.y += (desiredCamY - camera.position.y) * 0.12 + screenShake.offsetY * 0.03;
-        camera.position.z += (desiredCamZ - camera.position.z) * 0.12;
-
-        // Look at aim crosshair point 14 units ahead
+        // Smoothly look forward across the foundry floor
         const lookTarget = new THREE.Vector3(
-          activeObj.position.x + Math.sin(aimAngle) * 14 + Math.cos(aimAngle) * 0.5,
-          activeObj.position.y + 2.1,
-          activeObj.position.z + Math.cos(aimAngle) * 14 - Math.sin(aimAngle) * 0.5
+          activeObj.position.x + 0.6,
+          activeObj.position.y + 1.6,
+          activeObj.position.z - 4.5
         );
         camera.lookAt(lookTarget);
       } else {
         // Massive MK-IV Titan Camera
-        const aimAngle = activeObj.rotation.y;
-        const desiredCamX = activeObj.position.x - Math.sin(aimAngle) * 8.5;
-        const desiredCamZ = activeObj.position.z - Math.cos(aimAngle) * 8.5;
-        const desiredCamY = activeObj.position.y + 5.2;
+        const targetCamX = activeObj.position.x - 2.6;
+        const targetCamY = activeObj.position.y + 6.2;
+        const targetCamZ = activeObj.position.z + 11.0;
 
-        camera.position.x += (desiredCamX - camera.position.x) * 0.08 + screenShake.offsetX * 0.03;
-        camera.position.y += (desiredCamY - camera.position.y) * 0.08 + screenShake.offsetY * 0.03;
-        camera.position.z += (desiredCamZ - camera.position.z) * 0.08;
+        const lerpFactor = Math.min(1.0, delta * 6.0);
+        camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.025;
+        camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.025;
+        camera.position.z += (targetCamZ - camera.position.z) * lerpFactor;
 
         const lookTarget = new THREE.Vector3(
-          activeObj.position.x + Math.sin(aimAngle) * 16,
-          activeObj.position.y + 3.8,
-          activeObj.position.z + Math.cos(aimAngle) * 16
+          activeObj.position.x + 1.0,
+          activeObj.position.y + 3.5,
+          activeObj.position.z - 6.0
         );
         camera.lookAt(lookTarget);
       }
-      camera.rotation.z = screenShake.angle * 0.12;
+      camera.rotation.z = screenShake.angle * 0.1;
 
       // E. BODY-SWAPPING (EMBODY TITAN)
       if (swapCooldown > 0) swapCooldown -= delta;

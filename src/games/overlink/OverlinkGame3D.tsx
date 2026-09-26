@@ -5,6 +5,8 @@ import { entityFactory } from './EntityModels';
 import type { Unit7Entity, TitanMechEntity, ScientistEntity } from './EntityModels';
 import { enforcerRobotFactory } from './EnforcerRobotModel';
 import type { EnforcerRobotEntity } from './EnforcerRobotModel';
+import { humanSniperFactory } from './HumanSniperAlly';
+import type { HumanSniperEntity } from './HumanSniperAlly';
 import { bossFactory } from './BossModel';
 import type { BossCoreXEntity } from './BossModel';
 import { NeuralTetherEngine } from './TetherEngine';
@@ -46,6 +48,11 @@ export interface OverlinkStats {
   enforcersEliminated: number;
   totalEnforcers: number;
   activeBanner: MissionBannerData | null;
+  activeWeapon: 'PULSE' | 'SNIPER';
+  sniperAllyRescued: boolean;
+  sniperAllyHp: number;
+  sniperAllyMaxHp: number;
+  sniperAllyDancing: boolean;
 }
 
 interface OverlinkGame3DProps {
@@ -89,6 +96,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     enforcersEliminated: 0,
     totalEnforcers: 2,
     activeBanner: null as MissionBannerData | null,
+    activeWeapon: 'PULSE' as 'PULSE' | 'SNIPER',
+    sniperAllyRescued: false,
+    sniperAllyHp: 350,
+    sniperAllyMaxHp: 350,
+    sniperAllyDancing: false,
     godMode,
     isRunning: true,
   });
@@ -201,6 +213,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     scientists[1].group.position.set(-22, 0, 18);
     scientists.forEach((sc) => scene.add(sc.group));
 
+    // 9b. SPAWN RESISTANCE MARKSMAN (Specialist Manuel wielding 3D KSR-29 AP Sniper Rifle)
+    const sniperAlly: HumanSniperEntity = humanSniperFactory.createHumanSniper(new THREE.Vector3(14, 0, 14));
+    scene.add(sniperAlly.group);
+
     // 10. SPAWN SCOUT ENEMY BOTS (6 hostile scouts spread across 160m warzone)
     interface ActiveScout {
       group: THREE.Group;
@@ -269,6 +285,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       isEnemy?: boolean;
       isTitanShot?: boolean;
       isBossShot?: boolean;
+      isSniperShot?: boolean;
     }
     const projectiles: Projectile[] = [];
     const projGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8);
@@ -280,6 +297,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     const bossProjGeo = new THREE.SphereGeometry(0.45, 12, 12);
     const bossProjMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
 
+    // High-Velocity AP Sniper Projectile
+    const sniperProjGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.2, 8);
+    sniperProjGeo.rotateX(Math.PI / 2);
+    const sniperProjMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+
     // Raycaster for mouse
     const raycaster = new THREE.Raycaster();
     const mousePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -290,6 +312,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     let animId: number;
     let shootCooldown = 0;
     let swapCooldown = 0;
+    let weaponSwitchCooldown = 0;
+    let allyCommandCooldown = 0;
     let camYaw = 0;
     let effectiveYaw = 0;
     let invulnTimer = 0;
@@ -567,7 +591,39 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         titan.aegisShield.visible = false;
       }
 
-      // H. SHOOTING & RELOADING [R]
+      // H. WEAPON SWITCHING [Q] & ALLY COMMANDS [T]
+      if (weaponSwitchCooldown > 0) weaponSwitchCooldown -= delta;
+      if (allyCommandCooldown > 0) allyCommandCooldown -= delta;
+
+      if (input.isActionPressed('switchWeapon') && s.activeChassis === 'UNIT7' && weaponSwitchCooldown <= 0) {
+        weaponSwitchCooldown = 0.35;
+        s.activeWeapon = s.activeWeapon === 'PULSE' ? 'SNIPER' : 'PULSE';
+        sounds.playSniperReload();
+        vfx.emitText(
+          activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)),
+          s.activeWeapon === 'SNIPER' ? 'EQUIPPED: KSR-29 AP SNIPER' : 'EQUIPPED: PLASMA PULSE RIFLE',
+          s.activeWeapon === 'SNIPER' ? '#10b981' : '#38bdf8',
+          20,
+          true
+        );
+      }
+
+      if (input.isActionPressed('commandAlly') && allyCommandCooldown <= 0) {
+        allyCommandCooldown = 0.4;
+        if (sniperAlly.isRescued) {
+          if (sniperAlly.isDancing) {
+            sniperAlly.stopVictoryDance();
+            triggerBanner('INFO', 'MANUEL: TAKING AIM', 'SPECIALIST MANUEL LOCKED ON HOSTILES');
+          } else {
+            sniperAlly.playVictoryDance();
+            triggerBanner('SUCCESS', 'MANUEL: VICTORY DANCE!', 'RESISTANCE CELEBRATION PROTOCOL ACTIVE!');
+          }
+        } else {
+          vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'MANUEL NOT RESCUED YET (CHECK WAYPOINT)', '#f59e0b', 16);
+        }
+      }
+
+      // I. SHOOTING & RELOADING [R]
       if (shootCooldown > 0) shootCooldown -= delta;
 
       // Manual Reload Trigger on [R]
@@ -599,6 +655,20 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             reloadTimer = 0.9;
             sounds.playReload();
             vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'NO AMMO // RELOADING [R]', '#ef4444', 18);
+          } else if (s.activeWeapon === 'SNIPER') {
+            shootCooldown = 0.72;
+            s.ammo = Math.max(0, s.ammo - 2);
+            sounds.playSniperShot();
+            screenShake.addTrauma(0.18);
+            vfx.emitSparks(unit7.weaponMuzzle, 10, 0x10b981, 8);
+
+            const projMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
+            projMesh.position.copy(unit7.weaponMuzzle);
+            const shootDir = mouseWorldPos.clone().sub(unit7.weaponMuzzle).normalize();
+            shootDir.y = 0;
+            projMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
+            scene.add(projMesh);
+            projectiles.push({ mesh: projMesh, dir: shootDir, life: 2.2, isSniperShot: true });
           } else {
             shootCooldown = 0.18;
             s.ammo--;
@@ -826,23 +896,23 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       // K. UPDATE PROJECTILES & COLLISIONS
       for (let i = projectiles.length - 1; i >= 0; i--) {
         const p = projectiles[i];
-        const projSpeed = p.isTitanShot ? 28 : (p.isBossShot ? 20 : (p.isEnemy ? 24 : 38));
+        const projSpeed = p.isSniperShot ? 72 : (p.isTitanShot ? 28 : (p.isBossShot ? 20 : (p.isEnemy ? 24 : 38)));
         p.mesh.position.addScaledVector(p.dir, projSpeed * delta);
         p.life -= delta;
 
-        // Player / Titan Projectile vs Scouts
+        // Player / Titan / Sniper Projectile vs Scouts
         if (!p.isEnemy) {
           for (let j = scouts.length - 1; j >= 0; j--) {
             const sc = scouts[j];
             const dx = p.mesh.position.x - sc.group.position.x;
             const dz = p.mesh.position.z - sc.group.position.z;
             const distXZ = Math.hypot(dx, dz);
-            if (distXZ < (p.isTitanShot ? 3.4 : 2.2)) {
+            if (distXZ < (p.isSniperShot ? 2.5 : (p.isTitanShot ? 3.4 : 2.2))) {
               sounds.playHit();
-              const dmg = p.isTitanShot ? 80 : 50;
+              const dmg = p.isSniperShot ? 120 : (p.isTitanShot ? 80 : 50);
               sc.hp -= dmg;
-              vfx.emitSparks(p.mesh.position, p.isTitanShot ? 26 : 14, 0x00f0ff, p.isTitanShot ? 10 : 6);
-              vfx.emitText(sc.group.position, p.isTitanShot ? '-80 CRIT' : '-50', '#38bdf8', 16, p.isTitanShot);
+              vfx.emitSparks(p.mesh.position, p.isSniperShot ? 30 : (p.isTitanShot ? 26 : 14), p.isSniperShot ? 0x10b981 : 0x00f0ff, p.isSniperShot ? 12 : 6);
+              vfx.emitText(sc.group.position, p.isSniperShot ? '-120 AP CRIT' : (p.isTitanShot ? '-80 CRIT' : '-50'), p.isSniperShot ? '#10b981' : '#38bdf8', 16, true);
 
               scene.remove(p.mesh);
               projectiles.splice(i, 1);
@@ -858,6 +928,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
                 if (s.scoutsEliminated >= s.totalScouts) {
                   triggerBanner('SUCCESS', 'AIRSPACE SECURED!', 'ALL 6 HOSTILE AIR RECON SCOUTS DESTROYED (+1,000 PTS)');
                   s.score += 1000;
+                  sniperAlly.playVictoryDance();
                   window.setTimeout(() => {
                     triggerBanner('INFO', 'NEW MISSION DIRECTIVE', 'RESCUE TRAPPED RESEARCH PERSONNEL (0/2)');
                   }, 3800);
@@ -869,19 +940,19 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             }
           }
 
-          // Player / Titan Projectile vs Heavy Enforcers (3D Robot Enemy)
+          // Player / Titan / Sniper Projectile vs Heavy Enforcers (3D Robot Enemy)
           for (let k = enforcers.length - 1; k >= 0; k--) {
             const enf = enforcers[k];
             const dx = p.mesh.position.x - enf.group.position.x;
             const dz = p.mesh.position.z - enf.group.position.z;
             const distXZ = Math.hypot(dx, dz);
-            if (distXZ < (p.isTitanShot ? 3.4 : 2.4)) {
+            if (distXZ < (p.isSniperShot ? 2.6 : (p.isTitanShot ? 3.4 : 2.4))) {
               sounds.playHit();
               enf.flashHit();
-              const dmg = p.isTitanShot ? 80 : 50;
+              const dmg = p.isSniperShot ? 120 : (p.isTitanShot ? 80 : 50);
               enf.hp -= dmg;
-              vfx.emitSparks(p.mesh.position, p.isTitanShot ? 28 : 16, 0xff0033, 8);
-              vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), `-${dmg}`, '#ef4444', 18);
+              vfx.emitSparks(p.mesh.position, p.isSniperShot ? 32 : (p.isTitanShot ? 28 : 16), p.isSniperShot ? 0x10b981 : 0xff0033, 8);
+              vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), p.isSniperShot ? '-120 AP CRIT' : `-${dmg}`, p.isSniperShot ? '#10b981' : '#ef4444', 18, p.isSniperShot);
 
               scene.remove(p.mesh);
               projectiles.splice(i, 1);
@@ -898,6 +969,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
                 if (s.enforcersEliminated >= s.totalEnforcers) {
                   triggerBanner('SUCCESS', 'ENFORCERS DESTROYED!', 'PERIMETER DEFENSE CLEARED (+2,000 PTS)');
                   s.score += 2000;
+                  sniperAlly.playVictoryDance();
                   window.setTimeout(() => {
                     if (!s.isTitanAllied) {
                       triggerBanner('INFO', 'DIRECTIVE: OVERLINK', 'HACK MK-IV TITAN MECH (HOLD RMB)');
@@ -911,18 +983,18 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             }
           }
 
-          // Player / Titan Projectile vs CORE-X BOSS
+          // Player / Titan / Sniper Projectile vs CORE-X BOSS
           if (s.bossActive && boss.isAwake && p.mesh.position.distanceTo(boss.group.position) < 3.8) {
             sounds.playHit();
             boss.flashHit();
-            const dmg = p.isTitanShot ? 65 : 22;
+            const dmg = p.isSniperShot ? 95 : (p.isTitanShot ? 65 : 22);
             boss.hp = Math.max(0, boss.hp - dmg);
             s.bossHp = boss.hp;
             s.score += dmg * 10;
-            screenShake.addTrauma(p.isTitanShot ? 0.22 : 0.08);
+            screenShake.addTrauma(p.isSniperShot ? 0.25 : (p.isTitanShot ? 0.22 : 0.08));
 
-            vfx.emitSparks(p.mesh.position, p.isTitanShot ? 30 : 14, 0xff0044, 9);
-            vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 4.2, 0)), p.isTitanShot ? '-65 SLAM' : '-22', '#ff4444', 20, p.isTitanShot);
+            vfx.emitSparks(p.mesh.position, p.isSniperShot ? 32 : (p.isTitanShot ? 30 : 14), p.isSniperShot ? 0x10b981 : 0xff0044, 9);
+            vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 4.2, 0)), p.isSniperShot ? '-95 AP PIERCE' : (p.isTitanShot ? '-65 SLAM' : '-22'), p.isSniperShot ? '#10b981' : '#ff4444', 20, true);
 
             scene.remove(p.mesh);
             projectiles.splice(i, 1);
@@ -931,6 +1003,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               // BOSS DEFEATED!
               s.bossActive = false;
               s.bossHp = 0;
+              sniperAlly.playVictoryDance();
               sounds.playExplosion('large');
               screenShake.addTrauma(1.0);
               vfx.emitSparks(boss.group.position, 90, 0xff0044, 16, true);
@@ -1056,6 +1129,57 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       });
 
+      // L2. SPECIALIST MANUEL (RESISTANCE MARKSMAN // 3D HUMAN WIELDING KSR-29 AP SNIPER RIFLE)
+      if (!sniperAlly.isRescued) {
+        if (activeObj.position.distanceTo(sniperAlly.group.position) < 4.5) {
+          sniperAlly.isRescued = true;
+          s.sniperAllyRescued = true;
+          s.score += 2000;
+          sounds.playPowerup();
+          sounds.playSniperShot();
+          screenShake.addTrauma(0.15);
+          vfx.emitSparks(sniperAlly.group.position, 35, 0x10b981, 10, true);
+          vfx.emitText(
+            sniperAlly.group.position.clone().add(new THREE.Vector3(0, 3.2, 0)),
+            'SPECIALIST MANUEL RESCUED & ARMED!',
+            '#10b981',
+            24,
+            true
+          );
+          triggerBanner(
+            'SUCCESS',
+            'RESISTANCE MARKSMAN ACTIVE!',
+            'SPECIALIST MANUEL DEPLOYED WITH KSR-29 AP SNIPER RIFLE! (+2,000 PTS)'
+          );
+        }
+      }
+
+      // Collect living hostiles for Manuel to target
+      const activeEnemiesList: Array<{ group: THREE.Object3D; hp: number; isAlive: boolean }> = [];
+      scouts.forEach((sc) => {
+        if (sc.hp > 0) activeEnemiesList.push({ group: sc.group, hp: sc.hp, isAlive: true });
+      });
+      enforcers.forEach((enf) => {
+        if (enf.isAlive && enf.hp > 0) activeEnemiesList.push({ group: enf.group, hp: enf.hp, isAlive: true });
+      });
+      if (s.bossActive && boss.isAwake && boss.hp > 0) {
+        activeEnemiesList.push({ group: boss.group, hp: boss.hp, isAlive: true });
+      }
+
+      const allyShot = sniperAlly.update(delta, activeObj.position, activeEnemiesList, vfx);
+      if (allyShot.fired && allyShot.targetHit) {
+        // Draw sniper bullet tracer
+        const trailMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
+        trailMesh.position.copy(sniperAlly.muzzlePos);
+        const trailDir = allyShot.targetHit.group.position.clone().sub(sniperAlly.muzzlePos).normalize();
+        trailMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), trailDir);
+        scene.add(trailMesh);
+        projectiles.push({ mesh: trailMesh, dir: trailDir, life: 0.15, isSniperShot: true });
+        screenShake.addTrauma(0.06);
+      }
+      s.sniperAllyHp = sniperAlly.hp;
+      s.sniperAllyDancing = sniperAlly.isDancing;
+
       // M. PUSH STATS TO REACT HUD
       onUpdateStats({
         health: s.health,
@@ -1082,6 +1206,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         enforcersEliminated: s.enforcersEliminated,
         totalEnforcers: s.totalEnforcers,
         activeBanner: s.activeBanner,
+        activeWeapon: s.activeWeapon,
+        sniperAllyRescued: s.sniperAllyRescued,
+        sniperAllyHp: s.sniperAllyHp,
+        sniperAllyMaxHp: s.sniperAllyMaxHp,
+        sniperAllyDancing: s.sniperAllyDancing,
       });
 
       // Render 3D Scene
@@ -1090,6 +1219,19 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       // Render 2D Floating Combat Text, Vignettes & Tactical In-Game Waypoints onto overlay canvas
       if (overlayCtx && overlayCanvas) {
         const waypoints: InGameWaypoint[] = [];
+
+        // 0. Specialist Manuel (Human Sniper Ally) Waypoint
+        if (!sniperAlly.isRescued) {
+          const distToManuel = activeObj.position.distanceTo(sniperAlly.group.position);
+          waypoints.push({
+            pos: sniperAlly.group.position.clone().add(new THREE.Vector3(0, 2.5, 0)),
+            label: 'SPECIALIST MANUEL (SNIPER ALLY)',
+            sublabel: `PINNED DOWN // RESCUE (${Math.round(distToManuel)}m)`,
+            color: '#10b981',
+            icon: '🎯',
+            dist: distToManuel,
+          });
+        }
 
         // 1. Evacuation Airlock Waypoint
         const distToAirlock = activeObj.position.distanceTo(airlock.position);

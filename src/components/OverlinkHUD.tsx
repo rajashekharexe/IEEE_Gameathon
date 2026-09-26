@@ -128,21 +128,27 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
                   <span>Clear Air Scouts [{stats.scoutsEliminated}/{stats.totalScouts}]</span>
                 </div>
 
-                {/* 2. Rescue Trapped Scientists */}
-                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : stats.scoutsEliminated >= stats.totalScouts ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
-                  <span>{stats.rescuedScientists >= stats.totalScientists ? '✓' : '2.'}</span>
+                {/* 2. Rescue Trapped Personnel & Marksman Manuel */}
+                <div className={`flex items-center gap-2 ${stats.sniperAllyRescued ? 'text-emerald-400 font-bold' : stats.scoutsEliminated >= stats.totalScouts ? 'text-emerald-300 font-bold animate-pulse' : 'text-slate-400'}`}>
+                  <span>{stats.sniperAllyRescued ? '✓' : '2.'}</span>
+                  <span>{stats.sniperAllyRescued ? 'Specialist Manuel Armed [KSR-29 AP]' : 'Rescue Specialist Manuel (Outpost)'}</span>
+                </div>
+
+                {/* 3. Rescue Scientists */}
+                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : stats.sniperAllyRescued ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
+                  <span>{stats.rescuedScientists >= stats.totalScientists ? '✓' : '3.'}</span>
                   <span>Rescue Scientists [{stats.rescuedScientists}/{stats.totalScientists}]</span>
                 </div>
 
-                {/* 3. Neutralize 3D Heavy Combat Enforcers */}
+                {/* 4. Neutralize 3D Heavy Combat Enforcers */}
                 <div className={`flex items-center gap-2 ${stats.enforcersEliminated >= stats.totalEnforcers ? 'text-emerald-400 line-through' : (stats.rescuedScientists >= stats.totalScientists || stats.enforcersEliminated > 0) ? 'text-rose-400 font-bold animate-pulse' : 'text-slate-400'}`}>
-                  <span>{stats.enforcersEliminated >= stats.totalEnforcers ? '✓' : '3.'}</span>
+                  <span>{stats.enforcersEliminated >= stats.totalEnforcers ? '✓' : '4.'}</span>
                   <span>Destroy 3D Enforcers [{stats.enforcersEliminated}/{stats.totalEnforcers}]</span>
                 </div>
 
-                {/* 4. Hack & Pilot MK-IV Titan */}
+                {/* 5. Hack & Pilot MK-IV Titan */}
                 <div className={`flex items-center gap-2 ${stats.activeChassis === 'TITAN' ? 'text-emerald-400 font-bold' : stats.isTitanAllied ? 'text-amber-300 animate-pulse font-bold' : 'text-cyan-400'}`}>
-                  <span>{stats.isTitanAllied ? '✓' : '4.'}</span>
+                  <span>{stats.isTitanAllied ? '✓' : '5.'}</span>
                   <span>{stats.activeChassis === 'TITAN' ? 'Piloting MK-IV Titan!' : stats.isTitanAllied ? 'Titan Overridden! Press [E] to Pilot' : 'Hack MK-IV Titan (Hold RMB)'}</span>
                 </div>
               </>
@@ -150,18 +156,43 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
               <>
                 <div className="text-emerald-400 flex items-center gap-2">
                   <span>✓</span>
-                  <span>Sector Cleared & Personnel Evacuated</span>
+                  <span>Sector Cleared & Fireteam Armed</span>
                 </div>
                 <div className="text-rose-400 font-bold flex items-center gap-2 animate-pulse">
                   <span>🚨</span>
                   <span>DESTROY APEX CORE-X TITAN SPIDER</span>
                 </div>
                 <div className="text-slate-400 text-[11px] pl-6">
-                  {stats.activeChassis === 'TITAN' ? 'Use Hydraulic Slam Cannon (LMB) & Aegis Shield (Shift)' : 'Tip: Embody Titan Mech ([E]) for heavy cannons!'}
+                  {stats.activeChassis === 'TITAN' ? 'Use Hydraulic Slam Cannon (LMB) & Aegis Shield (Shift)' : 'Tip: Embody Titan Mech ([E]) or use AP Sniper ([Q])!'}
                 </div>
               </>
             )}
           </div>
+
+          {/* Fireteam Ally Status: Specialist Manuel */}
+          {stats.sniperAllyRescued && (
+            <div className="mt-2.5 bg-slate-900/90 backdrop-blur-md border border-emerald-500/50 p-2.5 rounded-xl shadow-xl">
+              <div className="flex items-center justify-between text-[11px] font-mono mb-1">
+                <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  SQUADMATE: SPECIALIST MANUEL
+                </span>
+                <span className="text-[10px] text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">
+                  {stats.sniperAllyDancing ? 'VICTORY DANCE 🕺' : 'KSR-29 AP [T]'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
+                <span>HEALTH: {stats.sniperAllyHp}/{stats.sniperAllyMaxHp}</span>
+                <span className="text-emerald-300 font-bold">75 AP DMG // COVERING FIRE</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 rounded-full transition-all duration-150"
+                  style={{ width: `${(stats.sniperAllyHp / stats.sniperAllyMaxHp) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -281,13 +312,18 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
               </>
             ) : (
               <>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-cyan-300 font-bold">
+                    <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>WEAPON [Q]: {stats.activeWeapon === 'SNIPER' ? 'KSR-29 AP SNIPER' : 'PULSE RIFLE'}</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.5 rounded font-mono ${stats.activeWeapon === 'SNIPER' ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : 'bg-cyan-950 text-cyan-300 border border-cyan-500/40'}`}>
+                    {stats.activeWeapon === 'SNIPER' ? '120 AP DMG' : '50 DMG'}
+                  </span>
+                </div>
                 <div className={`flex items-center gap-1.5 ${stats.isTetherActive ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
                   <Zap className={`w-3.5 h-3.5 ${stats.isTetherActive ? 'text-cyan-400 animate-pulse' : 'text-slate-500'}`} />
                   <span>NEURAL TETHER {stats.isTetherActive ? '(ACTIVE)' : '(RMB / E)'}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-400">
-                  <Crosshair className="w-3.5 h-3.5 text-slate-500" />
-                  <span>EMP BLAST (LMB / SPACE)</span>
                 </div>
               </>
             )}
@@ -300,9 +336,11 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
           <div className="flex items-center gap-2 bg-slate-950/85 backdrop-blur-md border border-cyan-500/40 px-4 py-1.5 rounded-xl text-[10px] font-mono text-slate-300 shadow-xl">
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">WASD</span> Move</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">LMB</span> Shoot</div>
+            <div><span className="text-emerald-400 font-bold bg-slate-800 px-1 py-0.5 rounded">Q</span> Weapon</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">R</span> Reload</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">RMB</span> Hack</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">E</span> Pilot Mech</div>
+            <div><span className="text-emerald-400 font-bold bg-slate-800 px-1 py-0.5 rounded">T</span> Command Manuel</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">Shift</span> Dash/Shield</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F1/G</span> God Mode</div>
             {onOpenJudgeModal && (

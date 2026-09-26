@@ -43,6 +43,11 @@ export const App: React.FC = () => {
     enforcersEliminated: 0,
     totalEnforcers: 2,
     activeBanner: null,
+    activeWeapon: 'PULSE',
+    sniperAllyRescued: false,
+    sniperAllyHp: 350,
+    sniperAllyMaxHp: 350,
+    sniperAllyDancing: false,
   });
 
   // Global key bindings

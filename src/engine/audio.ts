@@ -413,6 +413,74 @@ class SoundEngine {
     osc.stop(now + 1.8);
   }
 
+  // High-Caliber Sniper Rifle Supersonic Crack & Sub-bass Thump
+  public playSniperShot() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    // 1. Supersonic Crack (High punch transient)
+    const crackOsc = this.ctx.createOscillator();
+    const crackGain = this.ctx.createGain();
+    crackOsc.type = 'triangle';
+    crackOsc.frequency.setValueAtTime(1400, now);
+    crackOsc.frequency.exponentialRampToValueAtTime(150, now + 0.12);
+    crackGain.gain.setValueAtTime(0.4, now);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    crackOsc.connect(crackGain);
+    crackGain.connect(this.ctx.destination);
+    crackOsc.start(now);
+    crackOsc.stop(now + 0.12);
+
+    // 2. Sub-bass kinetic thump
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(95, now);
+    subOsc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
+    subGain.gain.setValueAtTime(0.6, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    subOsc.connect(subGain);
+    subGain.connect(this.ctx.destination);
+    subOsc.start(now);
+    subOsc.stop(now + 0.35);
+
+    // 3. Mechanical bolt-action spring echo
+    const boltOsc = this.ctx.createOscillator();
+    const boltGain = this.ctx.createGain();
+    boltOsc.type = 'sawtooth';
+    boltOsc.frequency.setValueAtTime(440, now + 0.25);
+    boltOsc.frequency.linearRampToValueAtTime(880, now + 0.32);
+    boltGain.gain.setValueAtTime(0, now);
+    boltGain.gain.setValueAtTime(0.15, now + 0.25);
+    boltGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    boltOsc.connect(boltGain);
+    boltGain.connect(this.ctx.destination);
+    boltOsc.start(now + 0.25);
+    boltOsc.stop(now + 0.35);
+  }
+
+  public playSniperReload() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(640, now + 0.2);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  }
+
   public stopBGM() {
     this.isBgmPlaying = false;
   }

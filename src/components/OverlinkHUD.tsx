@@ -1,6 +1,6 @@
-// Exact Recreation of the Concept Art HUD with Active Chassis & Shield Indicators
+// Exact Recreation of the Concept Art HUD with Active Chassis, Shield & CORE-X Boss Indicators
 import React from 'react';
-import { Crosshair, Zap, ShieldAlert, Radio, Shield, Cpu } from 'lucide-react';
+import { Crosshair, Zap, ShieldAlert, Radio, Shield, Cpu, Skull, AlertTriangle } from 'lucide-react';
 import type { OverlinkStats } from '../games/overlink/OverlinkGame3D';
 
 interface OverlinkHUDProps {
@@ -40,45 +40,75 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
         </div>
 
         {/* Top Center: Boss / Target Status */}
-        <div className="flex flex-col items-center min-w-[340px]">
-          <div className="flex justify-between w-full text-xs font-mono font-bold px-1 mb-1">
-            <span className="text-slate-300 flex items-center gap-1.5">
-              <Radio className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
-              TARGET: MK-IV TITAN
-            </span>
-            <span className={stats.isTitanAllied ? 'text-emerald-400' : 'text-cyan-400'}>
-              {stats.activeChassis === 'TITAN'
-                ? 'EMBODIED // PILOTING MECH'
-                : stats.isTitanAllied
-                ? 'OVERRIDE COMPLETE // PRESS [E] TO EMBODY'
-                : stats.isTetherActive
-                ? `HACK IN PROGRESS: ${stats.hackProgress}%`
-                : 'HOLD RIGHT-CLICK TO HACK'}
-            </span>
-          </div>
+        <div className="flex flex-col items-center min-w-[360px]">
+          {stats.bossActive ? (
+            <>
+              <div className="flex justify-between w-full text-xs font-mono font-bold px-1 mb-1">
+                <span className="text-rose-400 flex items-center gap-1.5 animate-pulse">
+                  <Skull className="w-4 h-4 text-rose-500" />
+                  APEX THREAT: CORE-X TITAN SPIDER
+                </span>
+                <span className="text-rose-300 font-mono font-black">
+                  {Math.max(0, stats.bossHp)} / {stats.bossMaxHp} HP
+                </span>
+              </div>
 
-          {/* Target Health & Hack Dual Bar */}
-          <div className="w-full bg-slate-900/90 border border-slate-700 h-3 rounded-full overflow-hidden p-0.5 backdrop-blur-md shadow-xl">
-            <div
-              className={`h-full rounded-full transition-all duration-150 ${
-                stats.isTitanAllied
-                  ? 'bg-gradient-to-r from-emerald-500 to-cyan-400'
-                  : stats.isTetherActive
-                  ? 'bg-gradient-to-r from-cyan-400 to-blue-500 animate-pulse'
-                  : 'bg-gradient-to-r from-rose-600 to-amber-500'
-              }`}
-              style={{ width: `${stats.isTitanAllied ? 100 : Math.max(15, stats.titanHealth)}%` }}
-            />
-          </div>
+              {/* Boss HP Bar */}
+              <div className="w-full bg-slate-950/90 border border-rose-500/60 h-3.5 rounded-full overflow-hidden p-0.5 backdrop-blur-md shadow-2xl">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-rose-600 via-red-500 to-amber-500 transition-all duration-150 relative shadow-[0_0_12px_#ff0033]"
+                  style={{ width: `${Math.max(0, (stats.bossHp / stats.bossMaxHp) * 100)}%` }}
+                >
+                  <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex justify-between w-full text-xs font-mono font-bold px-1 mb-1">
+                <span className="text-slate-300 flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                  TARGET: MK-IV TITAN
+                </span>
+                <span className={stats.isTitanAllied ? 'text-emerald-400' : 'text-cyan-400'}>
+                  {stats.activeChassis === 'TITAN'
+                    ? 'EMBODIED // PILOTING MECH'
+                    : stats.isTitanAllied
+                    ? 'OVERRIDE COMPLETE // PRESS [E] TO EMBODY'
+                    : stats.isTetherActive
+                    ? `HACK IN PROGRESS: ${stats.hackProgress}%`
+                    : 'HOLD RIGHT-CLICK TO HACK'}
+                </span>
+              </div>
+
+              {/* Target Health & Hack Dual Bar */}
+              <div className="w-full bg-slate-900/90 border border-slate-700 h-3 rounded-full overflow-hidden p-0.5 backdrop-blur-md shadow-xl">
+                <div
+                  className={`h-full rounded-full transition-all duration-150 ${
+                    stats.isTitanAllied
+                      ? 'bg-gradient-to-r from-emerald-500 to-cyan-400'
+                      : stats.isTetherActive
+                      ? 'bg-gradient-to-r from-cyan-400 to-blue-500 animate-pulse'
+                      : 'bg-gradient-to-r from-rose-600 to-amber-500'
+                  }`}
+                  style={{ width: `${stats.isTitanAllied ? 100 : Math.max(15, stats.titanHealth)}%` }}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Top Right: Objective & Wave */}
         <div className="bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 px-5 py-3 rounded-xl shadow-xl text-right min-w-[240px]">
           <div className="text-[10px] tracking-wider uppercase text-cyan-400 font-mono font-bold">
-            WAVE {stats.wave}/3: RESCUE SCIENTISTS
+            {stats.wave === 1 ? 'WAVE 1/2: RESCUE SCIENTISTS' : 'FINAL WAVE: DESTROY CORE-X'}
           </div>
-          <div className="text-sm font-black text-amber-300 font-mono mt-0.5">
-            [EVACUATED: {stats.rescuedScientists}/{stats.totalScientists}]
+          <div className="text-sm font-black font-mono mt-0.5">
+            {stats.wave === 1 ? (
+              <span className="text-amber-300">[EVACUATED: {stats.rescuedScientists}/{stats.totalScientists}]</span>
+            ) : (
+              <span className="text-rose-400 animate-pulse">[TARGET: APEX SPIDER]</span>
+            )}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 font-mono">
             SCORE: <span className="text-cyan-300 font-bold">{stats.score.toLocaleString()}</span>
@@ -94,7 +124,13 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
             <span>JUDGE DEMO MODE ACTIVE (INVULNERABLE)</span>
           </div>
         )}
-        {stats.isTitanAllied && stats.activeChassis === 'UNIT7' && (
+        {stats.bossAlert && (
+          <div className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-rose-950/90 border border-rose-500 text-rose-200 text-sm font-mono font-black animate-pulse shadow-2xl tracking-wider">
+            <AlertTriangle className="w-5 h-5 text-rose-400 animate-bounce" />
+            <span>{stats.bossAlert}</span>
+          </div>
+        )}
+        {stats.isTitanAllied && stats.activeChassis === 'UNIT7' && !stats.bossActive && (
           <div className="px-4 py-1 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold animate-bounce shadow-lg">
             ⚡ TITAN OVERRIDDEN! GET CLOSE & PRESS [E] TO EMBODY!
           </div>
@@ -178,11 +214,15 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
             <div className="w-16 h-16 rounded-full border border-cyan-500/40 bg-slate-950/80 relative flex items-center justify-center overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-transparent rounded-full animate-spin" />
               <div className="w-2 h-2 rounded-full bg-cyan-400 absolute" />
-              <div
-                className={`w-2.5 h-2.5 rounded-full absolute -top-3 ${
-                  stats.isTitanAllied ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'
-                }`}
-              />
+              {stats.bossActive ? (
+                <div className="w-3.5 h-3.5 rounded-full bg-rose-600 border border-white absolute -top-4 animate-ping shadow-[0_0_8px_#ff0033]" />
+              ) : (
+                <div
+                  className={`w-2.5 h-2.5 rounded-full absolute -top-3 ${
+                    stats.isTitanAllied ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'
+                  }`}
+                />
+              )}
               <div className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute right-2 bottom-3" />
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute left-2 bottom-2" />
             </div>

@@ -32,6 +32,10 @@ export const App: React.FC = () => {
     isTitanAllied: false,
     activeChassis: 'UNIT7',
     isShieldActive: false,
+    bossActive: false,
+    bossHp: 500,
+    bossMaxHp: 500,
+    bossAlert: null,
   });
 
   // Global key bindings
@@ -143,7 +147,8 @@ export const App: React.FC = () => {
               PROTOCOL RESTORED
             </h2>
             <p className="text-slate-400 text-sm mb-6">
-              All trapped scientists safely evacuated. MK-IV Titan neural bus successfully hijacked.
+              All trapped scientists safely evacuated. MK-IV Titan neural bus hijacked.
+              Apex Corrupted AI <span className="text-rose-400 font-bold">CORE-X DEFEATED</span>.
               Human Protection Protocol: <span className="text-emerald-400 font-bold">ONLINE</span>.
             </p>
 

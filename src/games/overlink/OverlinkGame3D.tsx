@@ -1,9 +1,10 @@
-// Master 3D WebGL Game Engine with Body-Swapping, Enemy Waves, Evacuation Escort, CORE-X Boss, and VFX Juice
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { factoryArena } from './FactoryArena';
 import { entityFactory } from './EntityModels';
 import type { Unit7Entity, TitanMechEntity, ScientistEntity } from './EntityModels';
+import { enforcerRobotFactory } from './EnforcerRobotModel';
+import type { EnforcerRobotEntity } from './EnforcerRobotModel';
 import { bossFactory } from './BossModel';
 import type { BossCoreXEntity } from './BossModel';
 import { NeuralTetherEngine } from './TetherEngine';
@@ -12,6 +13,13 @@ import { VFXSystem } from './VFXSystem';
 import type { InGameWaypoint } from './VFXSystem';
 import { input } from '../../engine/input';
 import { sounds } from '../../engine/audio';
+
+export interface MissionBannerData {
+  id: string;
+  type: 'SUCCESS' | 'ALERT' | 'INFO';
+  title: string;
+  subtitle: string;
+}
 
 export interface OverlinkStats {
   health: number;
@@ -33,6 +41,11 @@ export interface OverlinkStats {
   bossHp: number;
   bossMaxHp: number;
   bossAlert: string | null;
+  scoutsEliminated: number;
+  totalScouts: number;
+  enforcersEliminated: number;
+  totalEnforcers: number;
+  activeBanner: MissionBannerData | null;
 }
 
 interface OverlinkGame3DProps {
@@ -71,6 +84,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     bossHp: 500,
     bossMaxHp: 500,
     bossAlert: null as string | null,
+    scoutsEliminated: 0,
+    totalScouts: 6,
+    enforcersEliminated: 0,
+    totalEnforcers: 2,
+    activeBanner: null as MissionBannerData | null,
     godMode,
     isRunning: true,
   });
@@ -209,6 +227,13 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       scouts.push({ ...scout, shootCooldown: Math.random() * 60 });
     });
 
+    // 10b. SPAWN HEAVY COMBAT ENFORCERS (The 3D Robot Enemy Model)
+    const enforcers: EnforcerRobotEntity[] = [
+      enforcerRobotFactory.createEnforcer(new THREE.Vector3(26, 0, -14)),
+      enforcerRobotFactory.createEnforcer(new THREE.Vector3(-26, 0, -14)),
+    ];
+    enforcers.forEach((enf) => scene.add(enf.group));
+
     // 11. CORE-X BOSS ENTITY (Instantiated ready for Wave 2)
     const boss: BossCoreXEntity = bossFactory.createCoreX();
     boss.group.position.set(0, 0, -28);
@@ -272,6 +297,21 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     let regenSparkTimer = 0;
     let isReloading = false;
     let reloadTimer = 0;
+
+    // Dynamic Mission Banner Announcement System
+    let bannerTimeout: number | undefined;
+    const triggerBanner = (type: 'SUCCESS' | 'ALERT' | 'INFO', title: string, subtitle: string, duration = 3800) => {
+      s.activeBanner = { id: Math.random().toString(), type, title, subtitle };
+      sounds.playPowerup();
+      if (bannerTimeout) window.clearTimeout(bannerTimeout);
+      bannerTimeout = window.setTimeout(() => {
+        s.activeBanner = null;
+      }, duration);
+    };
+
+    const initialMissionTimer = window.setTimeout(() => {
+      triggerBanner('INFO', 'MISSION OBJECTIVE ACTIVE', 'CLEAR HOSTILE AIR RECON SCOUTS [0/6]');
+    }, 800);
 
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -508,6 +548,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             vfx.emitSparks(titan.group.position, 45, 0x00f0ff, 12, true);
             vfx.emitText(titan.group.position.clone().add(new THREE.Vector3(0, 5, 0)), 'NEURAL OVERLINK RESTORED!', '#00f0ff', 24, true);
             s.score += 2500;
+            triggerBanner('SUCCESS', 'TITAN OVERLINK RESTORED!', 'PRESS [E] TO PILOT MK-IV TITAN MECH (+2,500 PTS)');
           }
         } else {
           if (s.isTetherActive) {
@@ -615,6 +656,40 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           scout.shootCooldown = 140 + Math.random() * 80;
           const eProj = new THREE.Mesh(projGeo, enemyProjMat);
           eProj.position.copy(scoutPos).add(new THREE.Vector3(0, 0.8, 0));
+          const shootDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
+          eProj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
+          scene.add(eProj);
+          projectiles.push({ mesh: eProj, dir: shootDir, life: 2.5, isEnemy: true });
+        }
+      });
+
+      // I2. HEAVY COMBAT ENFORCER DROID AI & SHOOTING (3D Robot Enemy)
+      enforcers.forEach((enf) => {
+        const enfPos = enf.group.position;
+        const targetEntity = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
+        const distToPlayer = enfPos.distanceTo(targetEntity.position);
+
+        const angle = Math.atan2(
+          targetEntity.position.x - enfPos.x,
+          targetEntity.position.z - enfPos.z
+        );
+        enf.group.rotation.y = angle;
+
+        if (distToPlayer > 10) {
+          enfPos.x += Math.sin(angle) * enf.speed * delta;
+          enfPos.z += Math.cos(angle) * enf.speed * delta;
+          enf.animateWalk(time, true);
+        } else {
+          enf.animateWalk(time, false);
+        }
+
+        // Enforcer Heavy Plasma Blast (balanced cooldown)
+        enf.shootCooldown -= delta * 20;
+        if (enf.shootCooldown <= 0) {
+          enf.shootCooldown = 90 + Math.random() * 50;
+          sounds.playShoot(420);
+          const eProj = new THREE.Mesh(projGeo, enemyProjMat);
+          eProj.position.copy(enfPos).add(new THREE.Vector3(0, 1.8, 0));
           const shootDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
           eProj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
           scene.add(eProj);
@@ -779,6 +854,58 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
                 scene.remove(sc.group);
                 scouts.splice(j, 1);
                 s.score += 250;
+                s.scoutsEliminated++;
+                if (s.scoutsEliminated >= s.totalScouts) {
+                  triggerBanner('SUCCESS', 'AIRSPACE SECURED!', 'ALL 6 HOSTILE AIR RECON SCOUTS DESTROYED (+1,000 PTS)');
+                  s.score += 1000;
+                  window.setTimeout(() => {
+                    triggerBanner('INFO', 'NEW MISSION DIRECTIVE', 'RESCUE TRAPPED RESEARCH PERSONNEL (0/2)');
+                  }, 3800);
+                } else {
+                  triggerBanner('INFO', 'AIR RECON INTERCEPTED', `SCOUT BOT DESTROYED [${s.scoutsEliminated}/${s.totalScouts}]`);
+                }
+              }
+              break;
+            }
+          }
+
+          // Player / Titan Projectile vs Heavy Enforcers (3D Robot Enemy)
+          for (let k = enforcers.length - 1; k >= 0; k--) {
+            const enf = enforcers[k];
+            const dx = p.mesh.position.x - enf.group.position.x;
+            const dz = p.mesh.position.z - enf.group.position.z;
+            const distXZ = Math.hypot(dx, dz);
+            if (distXZ < (p.isTitanShot ? 3.4 : 2.4)) {
+              sounds.playHit();
+              enf.flashHit();
+              const dmg = p.isTitanShot ? 80 : 50;
+              enf.hp -= dmg;
+              vfx.emitSparks(p.mesh.position, p.isTitanShot ? 28 : 16, 0xff0033, 8);
+              vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), `-${dmg}`, '#ef4444', 18);
+
+              scene.remove(p.mesh);
+              projectiles.splice(i, 1);
+
+              if (enf.hp <= 0) {
+                sounds.playExplosion('large');
+                screenShake.addTrauma(0.4);
+                vfx.emitSparks(enf.group.position, 45, 0xff0044, 14, true);
+                vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 3.2, 0)), '+750 ENFORCER DESTROYED', '#10b981', 22, true);
+                scene.remove(enf.group);
+                enforcers.splice(k, 1);
+                s.score += 750;
+                s.enforcersEliminated++;
+                if (s.enforcersEliminated >= s.totalEnforcers) {
+                  triggerBanner('SUCCESS', 'ENFORCERS DESTROYED!', 'PERIMETER DEFENSE CLEARED (+2,000 PTS)');
+                  s.score += 2000;
+                  window.setTimeout(() => {
+                    if (!s.isTitanAllied) {
+                      triggerBanner('INFO', 'DIRECTIVE: OVERLINK', 'HACK MK-IV TITAN MECH (HOLD RMB)');
+                    }
+                  }, 3800);
+                } else {
+                  triggerBanner('SUCCESS', 'ENFORCER NEUTRALIZED!', `HEAVY COMBAT DROID ELIMINATED [${s.enforcersEliminated}/${s.totalEnforcers}]`);
+                }
               }
               break;
             }
@@ -812,6 +939,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               scene.remove(boss.group);
               boss.dispose();
               sounds.setBGMIntensity('normal');
+              triggerBanner('SUCCESS', 'FACILITY LIBERATED!', 'CORE-X DESTROYED // S-RANK VICTORY (+10,000 PTS)');
 
               window.setTimeout(() => {
                 s.isRunning = false;
@@ -893,13 +1021,21 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             scene.remove(sc.group);
             sc.group.position.set(999, 999, 999);
 
+            if (s.rescuedScientists >= s.totalScientists) {
+              triggerBanner('SUCCESS', 'RESCUE COMPLETE!', 'ALL PERSONNEL SAFELY EVACUATED (+3,000 PTS)');
+              s.score += 3000;
+            } else {
+              triggerBanner('SUCCESS', 'CIVILIAN EVACUATED!', `PERSONNEL #${s.rescuedScientists} SAFELY SECURED (+1,500 PTS)`);
+            }
+
             // If all rescued: Transition to WAVE 2 CORE-X BOSS ENCOUNTER!
             if (s.rescuedScientists >= s.totalScientists && s.wave === 1) {
               s.wave = 2;
               s.bossActive = true;
               s.bossAlert = 'CRITICAL ALERT: CORE-X TITAN SPIDER AWAKENED!';
+              triggerBanner('ALERT', 'CRITICAL THREAT: CORE-X AWAKENED!', 'APEX LEVEL HOSTILE ENGAGED // USE TITAN CANNONS!');
               scene.add(boss.group);
-              boss.group.position.set(0, 0, -18);
+              boss.group.position.set(0, 0, -28);
               boss.isAwake = true;
               sounds.playBossRoar();
               sounds.setBGMIntensity('boss');
@@ -941,6 +1077,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         bossHp: s.bossHp,
         bossMaxHp: s.bossMaxHp,
         bossAlert: s.bossAlert,
+        scoutsEliminated: s.scoutsEliminated,
+        totalScouts: s.totalScouts,
+        enforcersEliminated: s.enforcersEliminated,
+        totalEnforcers: s.totalEnforcers,
+        activeBanner: s.activeBanner,
       });
 
       // Render 3D Scene
@@ -1032,6 +1173,20 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           }
         });
 
+        // 6. Hostile Heavy Combat Enforcer Waypoints (3D Robot Enemy)
+        enforcers.forEach((enf, idx) => {
+          const distEnf = activeObj.position.distanceTo(enf.group.position);
+          if (distEnf < 65) {
+            waypoints.push({
+              pos: enf.group.position.clone().add(new THREE.Vector3(0, 3.0, 0)),
+              label: `HEAVY ENFORCER #${idx + 1}`,
+              sublabel: `3D COMBAT DROID [${Math.max(0, enf.hp)}/120 HP] (${Math.round(distEnf)}m)`,
+              color: '#f43f5e',
+              dist: distEnf,
+            });
+          }
+        });
+
         vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, waypoints);
       }
 
@@ -1042,6 +1197,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     return () => {
       cancelAnimationFrame(animId);
+      window.clearTimeout(initialMissionTimer);
+      if (bannerTimeout) window.clearTimeout(bannerTimeout);
       window.removeEventListener('resize', handleResize);
       tether.dispose(scene);
       boss.dispose();

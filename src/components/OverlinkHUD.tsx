@@ -1,6 +1,5 @@
-// Exact Recreation of the Concept Art HUD with Active Chassis, Shield & CORE-X Boss Indicators
 import React from 'react';
-import { Crosshair, Zap, ShieldAlert, Radio, Shield, Cpu, Skull, AlertTriangle } from 'lucide-react';
+import { Crosshair, Zap, ShieldAlert, Radio, Shield, Cpu, Skull, AlertTriangle, CheckCircle2, Flag } from 'lucide-react';
 import type { OverlinkStats } from '../games/overlink/OverlinkGame3D';
 
 interface OverlinkHUDProps {
@@ -112,32 +111,39 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
           <div className="space-y-1.5 text-xs font-mono">
             {stats.wave === 1 ? (
               <>
-                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : 'text-amber-300 font-bold'}`}>
-                  <span>{stats.rescuedScientists >= stats.totalScientists ? '✓' : '1.'}</span>
+                {/* 1. Neutralize Air Recon Scouts */}
+                <div className={`flex items-center gap-2 ${stats.scoutsEliminated >= stats.totalScouts ? 'text-emerald-400 line-through' : 'text-amber-300 font-bold'}`}>
+                  <span>{stats.scoutsEliminated >= stats.totalScouts ? '✓' : '1.'}</span>
+                  <span>Clear Air Scouts [{stats.scoutsEliminated}/{stats.totalScouts}]</span>
+                </div>
+
+                {/* 2. Rescue Trapped Scientists */}
+                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : stats.scoutsEliminated >= stats.totalScouts ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
+                  <span>{stats.rescuedScientists >= stats.totalScientists ? '✓' : '2.'}</span>
                   <span>Rescue Scientists [{stats.rescuedScientists}/{stats.totalScientists}]</span>
                 </div>
-                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : 'text-slate-400'}`}>
-                  <span>2.</span>
-                  <span>Escort to Green Airlock Pad</span>
+
+                {/* 3. Neutralize 3D Heavy Combat Enforcers */}
+                <div className={`flex items-center gap-2 ${stats.enforcersEliminated >= stats.totalEnforcers ? 'text-emerald-400 line-through' : (stats.rescuedScientists >= stats.totalScientists || stats.enforcersEliminated > 0) ? 'text-rose-400 font-bold animate-pulse' : 'text-slate-400'}`}>
+                  <span>{stats.enforcersEliminated >= stats.totalEnforcers ? '✓' : '3.'}</span>
+                  <span>Destroy 3D Enforcers [{stats.enforcersEliminated}/{stats.totalEnforcers}]</span>
                 </div>
-                <div className={`flex items-center gap-2 ${stats.isTitanAllied ? 'text-emerald-400 line-through' : 'text-cyan-400 font-bold'}`}>
-                  <span>{stats.isTitanAllied ? '✓' : '3.'}</span>
-                  <span>{stats.isTitanAllied ? 'Titan Hacked (Overridden)' : 'Hack MK-IV Titan (Hold RMB)'}</span>
-                </div>
-                <div className={`flex items-center gap-2 ${stats.activeChassis === 'TITAN' ? 'text-emerald-400 font-bold' : stats.isTitanAllied ? 'text-amber-300 animate-pulse font-bold' : 'text-slate-500'}`}>
-                  <span>{stats.activeChassis === 'TITAN' ? '✓' : '4.'}</span>
-                  <span>{stats.activeChassis === 'TITAN' ? 'Piloting MK-IV Titan!' : 'Pilot Titan: Press [E] when close'}</span>
+
+                {/* 4. Hack & Pilot MK-IV Titan */}
+                <div className={`flex items-center gap-2 ${stats.activeChassis === 'TITAN' ? 'text-emerald-400 font-bold' : stats.isTitanAllied ? 'text-amber-300 animate-pulse font-bold' : 'text-cyan-400'}`}>
+                  <span>{stats.isTitanAllied ? '✓' : '4.'}</span>
+                  <span>{stats.activeChassis === 'TITAN' ? 'Piloting MK-IV Titan!' : stats.isTitanAllied ? 'Titan Overridden! Press [E] to Pilot' : 'Hack MK-IV Titan (Hold RMB)'}</span>
                 </div>
               </>
             ) : (
               <>
                 <div className="text-emerald-400 flex items-center gap-2">
                   <span>✓</span>
-                  <span>Scientists Evacuated [2/2]</span>
+                  <span>Sector Cleared & Personnel Evacuated</span>
                 </div>
                 <div className="text-rose-400 font-bold flex items-center gap-2 animate-pulse">
                   <span>🚨</span>
-                  <span>DESTROY CORE-X TITAN SPIDER</span>
+                  <span>DESTROY APEX CORE-X TITAN SPIDER</span>
                 </div>
                 <div className="text-slate-400 text-[11px] pl-6">
                   {stats.activeChassis === 'TITAN' ? 'Use Hydraulic Slam Cannon (LMB) & Aegis Shield (Shift)' : 'Tip: Embody Titan Mech ([E]) for heavy cannons!'}
@@ -148,8 +154,49 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
         </div>
       </div>
 
-      {/* Center Alerts */}
-      <div className="self-center flex flex-col items-center gap-2">
+      {/* Center Dynamic Mission Banners & Alerts */}
+      <div className="self-center flex flex-col items-center gap-3 my-auto pointer-events-none">
+        {/* Dynamic Mission Progression Banner */}
+        {stats.activeBanner && (
+          <div className="flex flex-col items-center animate-bounce">
+            <div
+              className={`px-8 py-4 rounded-2xl backdrop-blur-xl border flex items-center gap-4 shadow-2xl transition-all duration-300 ${
+                stats.activeBanner.type === 'SUCCESS'
+                  ? 'bg-emerald-950/95 border-emerald-400 text-emerald-100 shadow-[0_0_40px_rgba(16,185,129,0.7)]'
+                  : stats.activeBanner.type === 'ALERT'
+                  ? 'bg-rose-950/95 border-rose-500 text-rose-100 shadow-[0_0_40px_rgba(244,63,94,0.7)]'
+                  : 'bg-cyan-950/95 border-cyan-400 text-cyan-100 shadow-[0_0_40px_rgba(6,182,212,0.7)]'
+              }`}
+            >
+              <div
+                className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg ${
+                  stats.activeBanner.type === 'SUCCESS'
+                    ? 'bg-emerald-500/25 text-emerald-300'
+                    : stats.activeBanner.type === 'ALERT'
+                    ? 'bg-rose-500/25 text-rose-300 animate-pulse'
+                    : 'bg-cyan-500/25 text-cyan-300'
+                }`}
+              >
+                {stats.activeBanner.type === 'SUCCESS' ? (
+                  <CheckCircle2 className="w-6 h-6" />
+                ) : stats.activeBanner.type === 'ALERT' ? (
+                  <AlertTriangle className="w-6 h-6" />
+                ) : (
+                  <Flag className="w-6 h-6" />
+                )}
+              </div>
+              <div>
+                <div className="text-[11px] font-mono font-bold tracking-widest uppercase opacity-85">
+                  {stats.activeBanner.title}
+                </div>
+                <div className="text-lg font-mono font-black tracking-wide">
+                  {stats.activeBanner.subtitle}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {godMode && (
           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500/20 border border-amber-500/60 rounded-xl text-amber-300 text-xs font-mono font-bold animate-pulse shadow-lg backdrop-blur-md">
             <ShieldAlert className="w-4 h-4" />

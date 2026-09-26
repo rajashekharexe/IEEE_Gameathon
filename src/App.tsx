@@ -36,6 +36,11 @@ export const App: React.FC = () => {
     bossHp: 500,
     bossMaxHp: 500,
     bossAlert: null,
+    scoutsEliminated: 0,
+    totalScouts: 6,
+    enforcersEliminated: 0,
+    totalEnforcers: 2,
+    activeBanner: null,
   });
 
   // Global key bindings

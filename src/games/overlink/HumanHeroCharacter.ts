@@ -362,13 +362,10 @@ class HumanHeroFactory {
     const humanScene = SkeletonUtils.clone(this.cachedHumanScene!) as THREE.Group;
     masterGroup.add(humanScene);
 
-    // Arm bones for victory celebration pose [T]
-    const rightUpperArm = humanScene.getObjectByName('rp_nathan_animated_003_walking_upperarm_r') as THREE.Bone | null;
-    const rightLowerArm = humanScene.getObjectByName('rp_nathan_animated_003_walking_lowerarm_r') as THREE.Bone | null;
-
     // Set up AnimationMixer:
-    // Natural full-body walk animation with both hands down at sides
-    // Filter out ONLY root translation so Nathan walks smoothly in place without drifting 2.9m forward
+    // Natural full-body walk animation with both hands down at hips 100% of the time.
+    // 1. Remove walking_root.position (removes forward translation so walk is in-place)
+    // 2. Drop Frame 0 from every track (Frame 0 is a static T-pose frame at t=0; frames 1..68 are the seamless natural walk cycle with hands down at hips)
     let mixer: THREE.AnimationMixer | null = null;
     let walkAction: THREE.AnimationAction | null = null;
 
@@ -376,9 +373,28 @@ class HumanHeroFactory {
       const rawClip = this.humanAnimations[0];
       mixer = new THREE.AnimationMixer(humanScene);
 
-      // Exclude only root position drift; keep natural arm swing so both hands stay down
-      const legTracks = rawClip.tracks.filter((t) => !t.name.includes('walking_root.position'));
-      const walkClip = new THREE.AnimationClip('WalkLocomotion', rawClip.duration, legTracks);
+      const cleanTracks: THREE.KeyframeTrack[] = [];
+      const startTime = rawClip.tracks[0]?.times[1] ?? 0.033333;
+      const duration = Math.max(0.1, rawClip.duration - startTime);
+
+      rawClip.tracks.forEach((track) => {
+        if (track.name.includes('walking_root.position')) return;
+
+        // Drop the first keyframe (t=0) and shift timestamps so frame 1 starts at t=0
+        const times = Array.from(track.times.slice(1)).map((t) => Math.max(0, t - startTime));
+        const valStride = track.getValueSize();
+        const values = Array.from(track.values.slice(valStride));
+
+        if (track instanceof THREE.QuaternionKeyframeTrack) {
+          cleanTracks.push(new THREE.QuaternionKeyframeTrack(track.name, times, values));
+        } else if (track instanceof THREE.VectorKeyframeTrack) {
+          cleanTracks.push(new THREE.VectorKeyframeTrack(track.name, times, values));
+        } else if (track instanceof THREE.NumberKeyframeTrack) {
+          cleanTracks.push(new THREE.NumberKeyframeTrack(track.name, times, values));
+        }
+      });
+
+      const walkClip = new THREE.AnimationClip('WalkLocomotion', duration, cleanTracks);
       walkAction = mixer.clipAction(walkClip);
       walkAction.setLoop(THREE.LoopRepeat, Infinity);
       walkAction.play();
@@ -411,16 +427,16 @@ class HumanHeroFactory {
     aimLaser.position.set(0, 0.02, 0.98);
     gunContainer.add(aimLaser);
 
-    // Scale main character by 24% (+18-20px screen height increase as requested)
-    masterGroup.scale.setScalar(1.24);
+    // Scale main character by 28% (+18-20px screen height increase as requested)
+    masterGroup.scale.setScalar(1.28);
 
     // Position gun firmly in front of Nathan's right hand at hip height (hands down, barrel pointing forward)
     const baseGunX = -0.22;
-    const baseGunY = 0.98;
-    const baseGunZ = 0.22;
+    const baseGunY = 1.02;
+    const baseGunZ = 0.20;
     gunContainer.position.set(baseGunX, baseGunY, baseGunZ);
     // Slight downward-forward tactical carry angle
-    gunContainer.rotation.set(-0.08, 0, 0);
+    gunContainer.rotation.set(-0.04, 0, 0);
     masterGroup.add(gunContainer);
 
     // World position of muzzle for projectiles and VFX
@@ -445,23 +461,12 @@ class HumanHeroFactory {
 
       playVictoryDance: () => {
         isDancing = true;
-        if (walkAction) walkAction.stop();
-        // Raise gun triumphantly into air in celebration
-        gunContainer.position.set(-0.2, 1.88, 0.15);
-        gunContainer.rotation.set(0.65, 0.2, 0.35);
-        if (rightUpperArm) rightUpperArm.quaternion.set(0.2, 0.1, -0.65, 0.72).normalize();
-        if (rightLowerArm) rightLowerArm.quaternion.set(0.0, 0.1, -0.2, 0.97).normalize();
       },
 
       stopVictoryDance: () => {
         isDancing = false;
-        if (walkAction) {
-          walkAction.reset();
-          walkAction.play();
-          walkAction.timeScale = 1.0;
-        }
         gunContainer.position.set(baseGunX, baseGunY, baseGunZ);
-        gunContainer.rotation.set(-0.08, 0, 0);
+        gunContainer.rotation.set(-0.04, 0, 0);
       },
 
       toggleVictoryDance: () => {

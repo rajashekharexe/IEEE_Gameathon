@@ -1,40 +1,44 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { HUD } from './components/HUD';
+import { OverlinkGame3D } from './games/overlink/OverlinkGame3D';
+import type { OverlinkStats } from './games/overlink/OverlinkGame3D';
+import { OverlinkHUD } from './components/OverlinkHUD';
 import { StartScreen } from './components/StartScreen';
 import { GameOverModal } from './components/GameOverModal';
-import { Game2D } from './games/Game2D';
-import { Game3D } from './games/Game3D';
 import { input } from './engine/input';
 import { sounds } from './engine/audio';
 
-type GameState = 'START' | 'PLAYING' | 'GAMEOVER';
-type GameMode = '2D' | '3D';
+type GameState = 'START' | 'PLAYING' | 'GAMEOVER' | 'VICTORY';
 
 export const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>('START');
-  const [gameMode, setGameMode] = useState<GameMode>('2D');
-  const [score, setScore] = useState<number>(0);
-  const [highScore, setHighScore] = useState<number>(() => {
-    return parseInt(localStorage.getItem('ieee_gameathon_highscore') || '0', 10);
-  });
-  const [health, setHealth] = useState<number>(100);
-  const [energy, setEnergy] = useState<number>(100);
-  const [wave, setWave] = useState<number>(1);
-  const [multiplier, setMultiplier] = useState<number>(1);
-  const [enemiesDefeated, setEnemiesDefeated] = useState<number>(0);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
   const [godMode, setGodMode] = useState<boolean>(false);
-  const [isNewHigh, setIsNewHigh] = useState<boolean>(false);
+  const [highScore, setHighScore] = useState<number>(() => {
+    return parseInt(localStorage.getItem('circuit_breaker_highscore') || '0', 10);
+  });
 
-  // Initialize Input and Audio Engine
+  const [stats, setStats] = useState<OverlinkStats>({
+    health: 82,
+    energy: 64,
+    thermalStability: 72,
+    ammo: 24,
+    maxAmmo: 60,
+    score: 1250,
+    wave: 1,
+    hackProgress: 0,
+    isTetherActive: false,
+    rescuedScientists: 0,
+    totalScientists: 2,
+    titanHealth: 100,
+    isTitanAllied: false,
+  });
+
+  // Global key bindings
   useEffect(() => {
     input.init();
 
-    // God mode callback
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'KeyM') {
-        const muted = sounds.toggleMute();
-        setIsMuted(muted);
+        sounds.toggleMute();
       }
       if (e.code === 'F1' || (e.code === 'KeyG' && !e.ctrlKey)) {
         setGodMode((prev) => !prev);
@@ -46,8 +50,8 @@ export const App: React.FC = () => {
           document.exitFullscreen().catch(() => {});
         }
       }
-      if (e.code === 'Space' && (gameState === 'START' || gameState === 'GAMEOVER')) {
-        startGame(gameMode);
+      if (e.code === 'Space' && (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'VICTORY')) {
+        startGame();
       }
     };
 
@@ -56,110 +60,51 @@ export const App: React.FC = () => {
       input.destroy();
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [gameState, gameMode]);
+  }, [gameState]);
 
-  // Start / Restart Game
-  const startGame = useCallback((mode: GameMode = gameMode) => {
-    setGameMode(mode);
-    setScore(0);
-    setHealth(100);
-    setEnergy(100);
-    setWave(1);
-    setMultiplier(1);
-    setEnemiesDefeated(0);
-    setIsNewHigh(false);
+  const startGame = useCallback(() => {
     setGameState('PLAYING');
     sounds.startBGM();
-  }, [gameMode]);
+  }, []);
 
-  // Handle Game Over
   const handleGameOver = useCallback(() => {
     setGameState('GAMEOVER');
     sounds.stopBGM();
+  }, []);
 
-    setScore((finalScore) => {
-      if (finalScore > highScore) {
-        setHighScore(finalScore);
-        setIsNewHigh(true);
-        localStorage.setItem('ieee_gameathon_highscore', finalScore.toString());
+  const handleVictory = useCallback(() => {
+    setGameState('VICTORY');
+    sounds.stopBGM();
+    sounds.playPowerup();
+
+    setStats((prev) => {
+      if (prev.score > highScore) {
+        setHighScore(prev.score);
+        localStorage.setItem('circuit_breaker_highscore', prev.score.toString());
       }
-      return finalScore;
+      return prev;
     });
   }, [highScore]);
 
-  // Update Game Stats from 60 FPS loop
-  const handleUpdateStats = useCallback(
-    (stats: {
-      score?: number;
-      health?: number;
-      energy?: number;
-      wave?: number;
-      multiplier?: number;
-      enemiesDefeated?: number;
-    }) => {
-      if (stats.score !== undefined) setScore(stats.score);
-      if (stats.health !== undefined) setHealth(stats.health);
-      if (stats.energy !== undefined) setEnergy(stats.energy);
-      if (stats.wave !== undefined) setWave(stats.wave);
-      if (stats.multiplier !== undefined) setMultiplier(stats.multiplier);
-      if (stats.enemiesDefeated !== undefined) setEnemiesDefeated(stats.enemiesDefeated);
-    },
-    []
-  );
-
-  const toggleMute = () => {
-    const muted = sounds.toggleMute();
-    setIsMuted(muted);
-  };
+  const handleUpdateStats = useCallback((newStats: Partial<OverlinkStats>) => {
+    setStats((prev) => ({ ...prev, ...newStats }));
+  }, []);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
-      {/* Scanline CRT Arcade Overlay */}
-      <div className="absolute inset-0 scanlines z-30 pointer-events-none opacity-40" />
+      {/* Scanline CRT overlay */}
+      <div className="absolute inset-0 scanlines z-30 pointer-events-none opacity-25" />
 
-      {/* Active Game Canvas / Viewport */}
+      {/* 3D Game World */}
       {gameState === 'PLAYING' && (
         <>
-          {gameMode === '2D' ? (
-            <Game2D
-              score={score}
-              health={health}
-              energy={energy}
-              wave={wave}
-              multiplier={multiplier}
-              godMode={godMode}
-              onUpdateStats={handleUpdateStats}
-              onGameOver={handleGameOver}
-            />
-          ) : (
-            <Game3D
-              score={score}
-              health={health}
-              energy={energy}
-              wave={wave}
-              multiplier={multiplier}
-              godMode={godMode}
-              onUpdateStats={handleUpdateStats}
-              onGameOver={handleGameOver}
-            />
-          )}
-
-          {/* Dynamic In-Game HUD */}
-          <HUD
-            score={score}
-            highScore={highScore}
-            health={health}
-            maxHealth={100}
-            energy={energy}
-            maxEnergy={100}
-            multiplier={multiplier}
-            wave={wave}
-            isMuted={isMuted}
+          <OverlinkGame3D
             godMode={godMode}
-            gameMode={gameMode}
-            onToggleMute={toggleMute}
-            onSwitchMode={(mode) => setGameMode(mode)}
+            onUpdateStats={handleUpdateStats}
+            onGameOver={handleGameOver}
+            onVictory={handleVictory}
           />
+          <OverlinkHUD stats={stats} godMode={godMode} />
         </>
       )}
 
@@ -167,8 +112,8 @@ export const App: React.FC = () => {
       {gameState === 'START' && (
         <StartScreen
           onStart={startGame}
-          selectedMode={gameMode}
-          onSelectMode={setGameMode}
+          selectedMode="3D"
+          onSelectMode={() => {}}
           highScore={highScore}
         />
       )}
@@ -176,13 +121,47 @@ export const App: React.FC = () => {
       {/* Game Over Screen */}
       {gameState === 'GAMEOVER' && (
         <GameOverModal
-          score={score}
+          score={stats.score}
           highScore={highScore}
-          enemiesDefeated={enemiesDefeated}
-          wave={wave}
-          isNewHigh={isNewHigh}
-          onRestart={() => startGame(gameMode)}
+          enemiesDefeated={stats.isTitanAllied ? 1 : 0}
+          wave={stats.wave}
+          isNewHigh={stats.score > highScore}
+          onRestart={startGame}
         />
+      )}
+
+      {/* Victory Modal */}
+      {gameState === 'VICTORY' && (
+        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 z-50 text-white">
+          <div className="bg-slate-900 border border-emerald-500/60 rounded-2xl max-w-lg w-full p-8 text-center shadow-2xl box-glow-emerald">
+            <span className="inline-block px-4 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-mono font-bold tracking-widest uppercase mb-3 border border-emerald-500/40">
+              MISSION ACCOMPLISHED
+            </span>
+            <h2 className="text-4xl font-black text-white tracking-wider mb-2 font-mono neon-glow-emerald">
+              PROTOCOL RESTORED
+            </h2>
+            <p className="text-slate-400 text-sm mb-6">
+              All trapped scientists safely evacuated. MK-IV Titan neural bus successfully hijacked.
+              Human Protection Protocol: <span className="text-emerald-400 font-bold">ONLINE</span>.
+            </p>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 mb-6">
+              <span className="text-xs uppercase text-slate-500 font-bold tracking-wider block mb-1">
+                FINAL TACTICAL SCORE
+              </span>
+              <div className="text-5xl font-black text-cyan-400 font-mono tracking-wider neon-glow-cyan">
+                {stats.score.toLocaleString()}
+              </div>
+            </div>
+
+            <button
+              onClick={startGame}
+              className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:brightness-110 text-slate-950 font-black text-lg tracking-wider rounded-xl transition-all shadow-xl cursor-pointer"
+            >
+              PLAY AGAIN (SPACEBAR)
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

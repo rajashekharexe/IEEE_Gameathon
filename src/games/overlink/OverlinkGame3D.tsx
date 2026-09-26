@@ -192,7 +192,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     beaconMesh.position.set(0, 9, 48);
     scene.add(beaconMesh);
 
-    // 7. SPAWN HUMAN HERO (MAIN PLAYABLE CHARACTER) - Operative Manuel armed with 3D KSR-29 AP Sniper Rifle
+    // 7. SPAWN HUMAN HERO (MAIN PLAYABLE CHARACTER) - Operative Nathan armed with 3D KSR-29 AP Sniper Rifle
     const unit7: HumanHeroEntity = humanHeroFactory.createHero();
     unit7.group.position.set(-5, 0, 4);
     unit7.group.rotation.y = -0.35;
@@ -636,7 +636,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             triggerBanner('SUCCESS', 'VICTORY DANCE!', 'RESISTANCE CELEBRATION PROTOCOL ACTIVE! [F] TO COMBAT');
             sounds.playPowerup();
           } else {
-            triggerBanner('INFO', 'COMBAT STANCE', 'OPERATIVE MANUEL: KSR-29 AP SNIPER LOCKED ON HOSTILES');
+            triggerBanner('INFO', 'COMBAT STANCE', 'OPERATIVE NATHAN: KSR-29 AP SNIPER LOCKED ON HOSTILES');
           }
         }
       }

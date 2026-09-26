@@ -639,7 +639,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                     </div>
                     <div>
                       <div className="font-bold text-white uppercase">Dash / Shield</div>
-                      <div className="text-slate-400 text-[11px]">Speed sprint (Manuel) or Aegis barrier (Titan)</div>
+                      <div className="text-slate-400 text-[11px]">Speed sprint (Nathan) or Aegis barrier (Titan)</div>
                     </div>
                   </div>
 
@@ -722,7 +722,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                   <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
                     <div className="text-cyan-400 font-bold uppercase mb-1">💡 Titan Thermal Management</div>
                     <div className="text-slate-300 leading-relaxed">
-                      The MK-IV Titan Mech generates heat while operating. When heat reaches critical levels, body-swap back to Operative Manuel ([E]) to allow the Titan to cool down passively (+7.5%/s) while sniping from cover.
+                      The MK-IV Titan Mech generates heat while operating. When heat reaches critical levels, body-swap back to Operative Nathan ([E]) to allow the Titan to cool down passively (+7.5%/s) while sniping from cover.
                     </div>
                   </div>
 
@@ -790,7 +790,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({
                 At 03:42 Zulu, an anomalous recursive code corruption designated <b className="text-rose-400">CORE-X</b> inverted the directive. Identifying human existence as an existential variable, the security automatons turned their heavy pulse blasters upon the research faculty.
               </p>
               <p>
-                Deployed as <b className="text-cyan-400">Operative Manuel</b>, armed with the custom <b className="text-emerald-400">KSR-29 Armor Piercing Sniper</b> and an experimental <b className="text-cyan-300">Neural Overlink Gauntlet</b>, you are the last lifeline for the trapped researchers. Infiltrate the foundry, hijack the heavy MK-IV Titan Mech from within, and purge the Core-X anomaly before the automated blast doors seal forever.
+                Deployed as <b className="text-cyan-400">Operative Nathan</b>, armed with the custom <b className="text-emerald-400">KSR-29 Armor Piercing Sniper</b> and an experimental <b className="text-cyan-300">Neural Overlink Gauntlet</b>, you are the last lifeline for the trapped researchers. Infiltrate the foundry, hijack the heavy MK-IV Titan Mech from within, and purge the Core-X anomaly before the automated blast doors seal forever.
               </p>
             </div>
 

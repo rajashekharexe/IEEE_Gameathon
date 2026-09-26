@@ -1,7 +1,7 @@
-// 3D Human Hero Playable Character ("Operative Manuel")
+// 3D Human Hero Playable Character ("Operative Nathan")
 // Primary Playable Hero for Circuit Breaker: Overlink
 // Features:
-// 1. Rigged 3D Photorealistic Human Model (human.glb) cloned via SkeletonUtils
+// 1. Rigged 3D Photorealistic Human Model (nathan.glb) cloned via SkeletonUtils
 // 2. High-Caliber KSR-29 AP Sniper Rifle held prominently in both hands
 // 3. Realistic combat grip with right hand on trigger and left hand on barrel handguard
 // 4. Integrated 3D Sniper Ammo magazine (sniper.glb)
@@ -74,9 +74,9 @@ class HumanHeroFactory {
         }
       );
 
-      // 2. Load 3D Human Character Model (human.glb)
+      // 2. Load 3D Human Character Model (nathan.glb)
       loader.load(
-        '/models/human/human.glb',
+        '/models/human/nathan.glb',
         (gltf) => {
           const humanScene = gltf.scene;
           humanScene.traverse((child) => {
@@ -87,7 +87,7 @@ class HumanHeroFactory {
               if (mesh.material) {
                 const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
                 if ('roughness' in mat) (mat as any).roughness = 0.55;
-                if ('metalness' in mat) (mat as any).metalness = 0.2;
+                if ('metalness' in mat) (mat as any).metalness = 0.15;
               }
             }
           });
@@ -97,7 +97,7 @@ class HumanHeroFactory {
         },
         undefined,
         (err) => {
-          console.warn('Failed to load 3D Human model, using procedural fallback:', err);
+          console.warn('Failed to load 3D Nathan model, using procedural fallback:', err);
           this.cachedHumanScene = this.createProceduralHuman();
           this.checkPreloadComplete();
         }
@@ -362,46 +362,50 @@ class HumanHeroFactory {
     const humanScene = SkeletonUtils.clone(this.cachedHumanScene!) as THREE.Group;
     masterGroup.add(humanScene);
 
-    // Find key upper-body arm bones for holding the sniper rifle
-    const rightUpperArm = humanScene.getObjectByName('rp_manuel_animated_001_dancing_upperarm_r') as THREE.Bone | null;
-    const rightLowerArm = humanScene.getObjectByName('rp_manuel_animated_001_dancing_lowerarm_r') as THREE.Bone | null;
-    const rightHand = humanScene.getObjectByName('rp_manuel_animated_001_dancing_hand_r') as THREE.Bone | null;
+    // Find key upper-body arm bones for holding the sniper rifle (Nathan rig)
+    const rightUpperArm = humanScene.getObjectByName('rp_nathan_animated_003_walking_upperarm_r') as THREE.Bone | null;
+    const rightLowerArm = humanScene.getObjectByName('rp_nathan_animated_003_walking_lowerarm_r') as THREE.Bone | null;
+    const rightHand = humanScene.getObjectByName('rp_nathan_animated_003_walking_hand_r') as THREE.Bone | null;
 
-    const leftUpperArm = humanScene.getObjectByName('rp_manuel_animated_001_dancing_upperarm_l') as THREE.Bone | null;
-    const leftLowerArm = humanScene.getObjectByName('rp_manuel_animated_001_dancing_lowerarm_l') as THREE.Bone | null;
-    const leftHand = humanScene.getObjectByName('rp_manuel_animated_001_dancing_hand_l') as THREE.Bone | null;
+    const leftUpperArm = humanScene.getObjectByName('rp_nathan_animated_003_walking_upperarm_l') as THREE.Bone | null;
+    const leftLowerArm = humanScene.getObjectByName('rp_nathan_animated_003_walking_lowerarm_l') as THREE.Bone | null;
+    const leftHand = humanScene.getObjectByName('rp_nathan_animated_003_walking_hand_l') as THREE.Bone | null;
+
+    const rightUpperTwist = humanScene.getObjectByName('rp_nathan_animated_003_walking_upperarm_twist_r') as THREE.Bone | null;
+    const rightLowerTwist = humanScene.getObjectByName('rp_nathan_animated_003_walking_lowerarm_twist_r') as THREE.Bone | null;
+    const leftUpperTwist = humanScene.getObjectByName('rp_nathan_animated_003_walking_upperarm_twist_l') as THREE.Bone | null;
+    const leftLowerTwist = humanScene.getObjectByName('rp_nathan_animated_003_walking_lowerarm_twist_l') as THREE.Bone | null;
 
     // Set up AnimationMixer:
-    // 1. Locomotion clip (legs & hips only) - keeps upper body locked in combat rifle grip
-    // 2. Full dance clip (all joints) - active during victory celebration [T]
+    // 1. In-place walk locomotion (legs, hips, pelvis, spine) - upper body kept locked in combat rifle grip
+    // 2. Victory celebration mode on [T]
     let mixer: THREE.AnimationMixer | null = null;
     let walkAction: THREE.AnimationAction | null = null;
-    let danceAction: THREE.AnimationAction | null = null;
 
     if (this.humanAnimations.length > 0) {
       const rawClip = this.humanAnimations[0];
       mixer = new THREE.AnimationMixer(humanScene);
 
-      // Full dance clip
-      danceAction = mixer.clipAction(rawClip);
-      danceAction.setLoop(THREE.LoopRepeat, Infinity);
-
-      // Filtered locomotion tracks: exclude upper body (shoulders, arms, hands, neck, head)
-      const isUpperBody = (name: string) =>
-        /shoulder|upperarm|lowerarm|hand|thumb|index|middle|ring|pinky|twist|neck|head|eye/i.test(name);
-      const legTracks = rawClip.tracks.filter((t) => !isUpperBody(t.name));
+      // Filter out root translation (keeps Nathan stepping smoothly in-place without drifting 2.9m forward)
+      // Filter out arm/hand tracks (keeps arms locked in tactical rifle grip)
+      const isUpperOrRootMotion = (name: string) => {
+        if (name.includes('walking_root.position')) return true;
+        if (/upperarm|lowerarm|hand|twist|thumb|finger/i.test(name)) return true;
+        return false;
+      };
+      const legTracks = rawClip.tracks.filter((t) => !isUpperOrRootMotion(t.name));
       const walkClip = new THREE.AnimationClip('WalkLocomotion', rawClip.duration, legTracks);
       walkAction = mixer.clipAction(walkClip);
       walkAction.setLoop(THREE.LoopRepeat, Infinity);
       walkAction.play();
-      walkAction.timeScale = 0.6;
+      walkAction.timeScale = 1.0;
     }
 
     // 2. Build and Mount the High-Detail 3D KSR-29 AP Sniper Rifle
     const gunContainer = new THREE.Group();
     const sniperModel = this.createSniperRifle();
     // Scale to realistic sniper rifle proportions (~1.12m length)
-    sniperModel.scale.setScalar(0.68);
+    sniperModel.scale.setScalar(0.70);
     gunContainer.add(sniperModel);
 
     // Muzzle Point Light (Flashes bright emerald-amber upon firing)
@@ -424,13 +428,13 @@ class HumanHeroFactory {
     aimLaser.position.set(0, 0.02, 0.98);
     gunContainer.add(aimLaser);
 
-    // Scale main character by 18% (+15-20px screen height increase as requested)
-    masterGroup.scale.setScalar(1.18);
+    // Scale main character by 24% (+18-20px screen height increase as requested)
+    masterGroup.scale.setScalar(1.24);
 
-    // Position gun firmly in front of Manuel's chest & hands (never penetrating back/shirt)
-    const baseGunX = -0.14;
-    const baseGunY = 1.22;
-    const baseGunZ = 0.42; // Forward in front of chest so stock sits on shoulder without penetrating
+    // Position gun firmly in front of Nathan's right chest & hands (never penetrating back/shirt)
+    const baseGunX = -0.15;
+    const baseGunY = 1.26;
+    const baseGunZ = 0.38; // Forward in front of chest so stock sits on right shoulder without penetrating
     gunContainer.position.set(baseGunX, baseGunY, baseGunZ);
     masterGroup.add(gunContainer);
 
@@ -442,38 +446,33 @@ class HumanHeroFactory {
     let flashTimer = 0;
     let isDancing = false;
 
-    // Tactical Two-Handed Combat Arm Quaternions (Grip & Support Stance)
-    // Left Arm: reaches forward across chest and flexes upward to cradle the rifle barrel
-    const qCombatUpperL = new THREE.Quaternion()
-      .setFromEuler(new THREE.Euler(0.20, 2.95, 0.10, 'YXZ'))
-      .multiply(new THREE.Quaternion(0.34041, 0.44008, -0.40100, 0.72777));
-    const qCombatLowerL = new THREE.Quaternion()
-      .setFromEuler(new THREE.Euler(-0.45, 0.0, 0.60, 'YXZ'))
-      .multiply(new THREE.Quaternion(-0.39233, -0.00064, -0.01512, 0.91970));
-    const qCombatHandL = new THREE.Quaternion()
-      .setFromEuler(new THREE.Euler(-0.25, 0.35, 0.10, 'YXZ'))
-      .multiply(new THREE.Quaternion(-0.69270, 0.03114, -0.06152, 0.71792));
+    // Tactical Two-Handed Combat Arm Quaternions for Nathan Rig:
+    // Right Arm: pitches down into ready firing stance with hand firmly gripping pistol grip & trigger
+    const qCombatUpperR = new THREE.Quaternion(-0.06379, 0.27942, 0.67696, 0.67792);
+    const qCombatLowerR = new THREE.Quaternion(0.02410, 0.28384, -0.08111, 0.95513);
+    const qCombatHandR = new THREE.Quaternion(-0.68, 0.12, -0.18, 0.70).normalize();
 
-    // Right Arm: pitches down into ready firing stance with hand firmly on the pistol grip
-    const qCombatUpperR = new THREE.Quaternion()
-      .setFromEuler(new THREE.Euler(0.38, -0.15, 0.0, 'YXZ'))
-      .multiply(new THREE.Quaternion(-0.24369, 0.56081, -0.11195, 0.78331));
-    const qCombatLowerR = new THREE.Quaternion()
-      .setFromEuler(new THREE.Euler(-0.25, 0.0, -0.35, 'YXZ'))
-      .multiply(new THREE.Quaternion(0.13198, -0.04066, 0.00505, 0.99041));
-    const qCombatHandR = new THREE.Quaternion()
-      .setFromEuler(new THREE.Euler(0.15, -0.10, 0.10, 'YXZ'))
-      .multiply(new THREE.Quaternion(-0.58297, -0.06395, -0.17320, 0.79124));
+    // Left Arm: reaches forward across chest to cradle and support the rifle handguard
+    const qCombatUpperL = new THREE.Quaternion(-0.06798, -0.67839, -0.51106, 0.52344);
+    const qCombatLowerL = new THREE.Quaternion(0.00269, -0.01580, -0.00163, 0.99987);
+    const qCombatHandL = new THREE.Quaternion(-0.58, -0.22, 0.14, 0.77).normalize();
+
+    // Identity quaternion for smooth twist bones
+    const qIdentity = new THREE.Quaternion(0, 0, 0, 1);
 
     // Lock arms into tactical two-handed rifle firing grip
     const lockCombatArms = () => {
       if (rightUpperArm) rightUpperArm.quaternion.copy(qCombatUpperR);
       if (rightLowerArm) rightLowerArm.quaternion.copy(qCombatLowerR);
       if (rightHand) rightHand.quaternion.copy(qCombatHandR);
+      if (rightUpperTwist) rightUpperTwist.quaternion.copy(qIdentity);
+      if (rightLowerTwist) rightLowerTwist.quaternion.copy(qIdentity);
 
       if (leftUpperArm) leftUpperArm.quaternion.copy(qCombatUpperL);
       if (leftLowerArm) leftLowerArm.quaternion.copy(qCombatLowerL);
       if (leftHand) leftHand.quaternion.copy(qCombatHandL);
+      if (leftUpperTwist) leftUpperTwist.quaternion.copy(qIdentity);
+      if (leftLowerTwist) leftLowerTwist.quaternion.copy(qIdentity);
     };
 
     const entity: HumanHeroEntity = {
@@ -491,26 +490,23 @@ class HumanHeroFactory {
       playVictoryDance: () => {
         isDancing = true;
         if (walkAction) walkAction.stop();
-        if (danceAction) {
-          danceAction.reset();
-          danceAction.play();
-          danceAction.timeScale = 1.0;
-        }
-        // Raise gun triumphantly into air
-        gunContainer.position.set(-0.2, 1.85, 0.12);
-        gunContainer.rotation.set(0.7, 0.2, 0.35);
+        // Raise gun triumphantly into air in celebration
+        gunContainer.position.set(-0.2, 1.88, 0.15);
+        gunContainer.rotation.set(0.65, 0.2, 0.35);
+        if (rightUpperArm) rightUpperArm.quaternion.set(0.2, 0.1, -0.65, 0.72).normalize();
+        if (rightLowerArm) rightLowerArm.quaternion.set(0.0, 0.1, -0.2, 0.97).normalize();
       },
 
       stopVictoryDance: () => {
         isDancing = false;
-        if (danceAction) danceAction.stop();
         if (walkAction) {
           walkAction.reset();
           walkAction.play();
-          walkAction.timeScale = 0.6;
+          walkAction.timeScale = 1.0;
         }
         gunContainer.position.set(baseGunX, baseGunY, baseGunZ);
         gunContainer.rotation.set(0, 0, 0);
+        lockCombatArms();
       },
 
       toggleVictoryDance: () => {

@@ -34,7 +34,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
                 <Cpu className="w-3 h-3 text-cyan-400" />
                 <span className="text-slate-400">OPERATIVE:</span>
                 <span className={stats.activeChassis === 'TITAN' ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
-                  {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN (PILOTING)' : 'OPERATIVE MANUEL (KSR-29 AP SNIPER)'}
+                  {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN (PILOTING)' : 'OPERATIVE NATHAN (KSR-29 AP SNIPER)'}
                 </span>
               </div>
               {onOpenJudgeModal && (
@@ -234,7 +234,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
         {/* Bottom Left: Health, Energy & Abilities */}
         <div className="flex flex-col gap-2 min-w-[260px]">
           <div className="text-lg font-black font-mono text-cyan-400 tracking-wider">
-            {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN' : 'OPERATIVE MANUEL'}
+            {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN' : 'OPERATIVE NATHAN'}
           </div>
 
           {/* Health Bar */}

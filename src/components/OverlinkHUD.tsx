@@ -98,20 +98,52 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
           )}
         </div>
 
-        {/* Top Right: Objective & Wave */}
-        <div className="bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 px-5 py-3 rounded-xl shadow-xl text-right min-w-[240px]">
-          <div className="text-[10px] tracking-wider uppercase text-cyan-400 font-mono font-bold">
-            {stats.wave === 1 ? 'WAVE 1/2: RESCUE SCIENTISTS' : 'FINAL WAVE: DESTROY CORE-X'}
+        {/* Top Right: Interactive Tactical Mission Directives */}
+        <div className="bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 p-3.5 rounded-xl shadow-2xl min-w-[280px] max-w-[320px]">
+          <div className="flex justify-between items-center pb-1.5 border-b border-slate-800 mb-2">
+            <span className="text-[10px] tracking-wider uppercase text-cyan-400 font-mono font-bold">
+              {stats.wave === 1 ? 'MISSION PROTOCOL (PHASE 1)' : 'FINAL PROTOCOL (PHASE 2)'}
+            </span>
+            <span className="text-[11px] font-mono text-cyan-300 font-bold">
+              SCORE: {stats.score.toLocaleString()}
+            </span>
           </div>
-          <div className="text-sm font-black font-mono mt-0.5">
+
+          <div className="space-y-1.5 text-xs font-mono">
             {stats.wave === 1 ? (
-              <span className="text-amber-300">[EVACUATED: {stats.rescuedScientists}/{stats.totalScientists}]</span>
+              <>
+                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : 'text-amber-300 font-bold'}`}>
+                  <span>{stats.rescuedScientists >= stats.totalScientists ? '✓' : '1.'}</span>
+                  <span>Rescue Scientists [{stats.rescuedScientists}/{stats.totalScientists}]</span>
+                </div>
+                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : 'text-slate-400'}`}>
+                  <span>2.</span>
+                  <span>Escort to Green Airlock Pad</span>
+                </div>
+                <div className={`flex items-center gap-2 ${stats.isTitanAllied ? 'text-emerald-400 line-through' : 'text-cyan-400 font-bold'}`}>
+                  <span>{stats.isTitanAllied ? '✓' : '3.'}</span>
+                  <span>{stats.isTitanAllied ? 'Titan Hacked (Overridden)' : 'Hack MK-IV Titan (Hold RMB)'}</span>
+                </div>
+                <div className={`flex items-center gap-2 ${stats.activeChassis === 'TITAN' ? 'text-emerald-400 font-bold' : stats.isTitanAllied ? 'text-amber-300 animate-pulse font-bold' : 'text-slate-500'}`}>
+                  <span>{stats.activeChassis === 'TITAN' ? '✓' : '4.'}</span>
+                  <span>{stats.activeChassis === 'TITAN' ? 'Piloting MK-IV Titan!' : 'Pilot Titan: Press [E] when close'}</span>
+                </div>
+              </>
             ) : (
-              <span className="text-rose-400 animate-pulse">[TARGET: APEX SPIDER]</span>
+              <>
+                <div className="text-emerald-400 flex items-center gap-2">
+                  <span>✓</span>
+                  <span>Scientists Evacuated [2/2]</span>
+                </div>
+                <div className="text-rose-400 font-bold flex items-center gap-2 animate-pulse">
+                  <span>🚨</span>
+                  <span>DESTROY CORE-X TITAN SPIDER</span>
+                </div>
+                <div className="text-slate-400 text-[11px] pl-6">
+                  {stats.activeChassis === 'TITAN' ? 'Use Hydraulic Slam Cannon (LMB) & Aegis Shield (Shift)' : 'Tip: Embody Titan Mech ([E]) for heavy cannons!'}
+                </div>
+              </>
             )}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1 font-mono">
-            SCORE: <span className="text-cyan-300 font-bold">{stats.score.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -131,14 +163,14 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
           </div>
         )}
         {stats.isTitanAllied && stats.activeChassis === 'UNIT7' && !stats.bossActive && (
-          <div className="px-4 py-1 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold animate-bounce shadow-lg">
+          <div className="px-4 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold animate-bounce shadow-lg">
             ⚡ TITAN OVERRIDDEN! GET CLOSE & PRESS [E] TO EMBODY!
           </div>
         )}
       </div>
 
       {/* 2. BOTTOM CONTROL & STATS DOCK */}
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-end gap-4">
         {/* Bottom Left: Health, Energy & Abilities */}
         <div className="flex flex-col gap-2 min-w-[260px]">
           <div className="text-lg font-black font-mono text-cyan-400 tracking-wider">
@@ -204,37 +236,49 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
           </div>
         </div>
 
-        {/* Bottom Center: Tactical Radar & Ammo */}
-        <div className="flex items-center gap-4 bg-slate-900/85 backdrop-blur-md border border-cyan-500/40 px-6 py-3 rounded-2xl shadow-2xl">
-          {/* Tactical Radar Simulation */}
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] font-mono tracking-widest text-slate-400 uppercase mb-1">
-              TACTICAL RADAR
-            </span>
-            <div className="w-16 h-16 rounded-full border border-cyan-500/40 bg-slate-950/80 relative flex items-center justify-center overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-transparent rounded-full animate-spin" />
-              <div className="w-2 h-2 rounded-full bg-cyan-400 absolute" />
-              {stats.bossActive ? (
-                <div className="w-3.5 h-3.5 rounded-full bg-rose-600 border border-white absolute -top-4 animate-ping shadow-[0_0_8px_#ff0033]" />
-              ) : (
-                <div
-                  className={`w-2.5 h-2.5 rounded-full absolute -top-3 ${
-                    stats.isTitanAllied ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'
-                  }`}
-                />
-              )}
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute right-2 bottom-3" />
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute left-2 bottom-2" />
-            </div>
+        {/* Bottom Center: Quick Controls Cheat-Sheet & Tactical Radar */}
+        <div className="flex flex-col items-center gap-2">
+          {/* Quick Controls Cheat-Sheet */}
+          <div className="flex items-center gap-2 bg-slate-950/85 backdrop-blur-md border border-cyan-500/40 px-4 py-1.5 rounded-xl text-[10px] font-mono text-slate-300 shadow-xl">
+            <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">WASD</span> Move</div>
+            <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">LMB</span> Shoot</div>
+            <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">RMB</span> Hack</div>
+            <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">E</span> Pilot Mech</div>
+            <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">Shift</span> Dash/Shield</div>
+            <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F1/G</span> God Mode</div>
           </div>
 
-          <div className="h-10 w-px bg-slate-800" />
+          <div className="flex items-center gap-4 bg-slate-900/85 backdrop-blur-md border border-cyan-500/40 px-6 py-2.5 rounded-2xl shadow-2xl">
+            {/* Tactical Radar Simulation */}
+            <div className="flex flex-col items-center">
+              <span className="text-[9px] font-mono tracking-widest text-slate-400 uppercase mb-1">
+                TACTICAL RADAR
+              </span>
+              <div className="w-14 h-14 rounded-full border border-cyan-500/40 bg-slate-950/80 relative flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-transparent rounded-full animate-spin" />
+                <div className="w-2 h-2 rounded-full bg-cyan-400 absolute" />
+                {stats.bossActive ? (
+                  <div className="w-3.5 h-3.5 rounded-full bg-rose-600 border border-white absolute -top-3 animate-ping shadow-[0_0_8px_#ff0033]" />
+                ) : (
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full absolute -top-2.5 ${
+                      stats.isTitanAllied ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'
+                    }`}
+                  />
+                )}
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute right-2 bottom-2" />
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute left-2 bottom-1" />
+              </div>
+            </div>
 
-          {/* Ammo Counter */}
-          <div className="text-center font-mono">
-            <span className="text-[10px] text-slate-400 block tracking-wider">AMMO</span>
-            <div className="text-3xl font-black text-white">
-              {stats.ammo}<span className="text-sm text-slate-500">/{stats.maxAmmo}</span>
+            <div className="h-10 w-px bg-slate-800" />
+
+            {/* Ammo Counter */}
+            <div className="text-center font-mono">
+              <span className="text-[10px] text-slate-400 block tracking-wider">AMMO</span>
+              <div className="text-2xl font-black text-white">
+                {stats.ammo}<span className="text-xs text-slate-500">/{stats.maxAmmo}</span>
+              </div>
             </div>
           </div>
         </div>

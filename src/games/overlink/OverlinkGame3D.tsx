@@ -9,6 +9,7 @@ import type { BossCoreXEntity } from './BossModel';
 import { NeuralTetherEngine } from './TetherEngine';
 import { ScreenShake } from '../../engine/screenshake';
 import { VFXSystem } from './VFXSystem';
+import type { InGameWaypoint } from './VFXSystem';
 import { input } from '../../engine/input';
 import { sounds } from '../../engine/audio';
 
@@ -114,29 +115,52 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // 4. LIGHTING (Moody Cinematic Sci-Fi Palette from Concept Art)
-    const ambientLight = new THREE.AmbientLight(0x0c152a, 1.2);
+    // 4. LIGHTING (Vibrant, high-contrast, luminous sci-fi foundry)
+    const ambientLight = new THREE.AmbientLight(0x1e293b, 2.4);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0x38bdf8, 2.6);
-    dirLight.position.set(20, 30, 15);
+    // Main overhead cyber floodlight
+    const dirLight = new THREE.DirectionalLight(0x7dd3fc, 3.8);
+    dirLight.position.set(20, 32, 16);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
 
-    // Warm Industrial Furnace Rim Light from deep factory floor
-    const rimLight = new THREE.DirectionalLight(0xf59e0b, 1.6);
-    rimLight.position.set(-15, 20, -25);
+    // Warm Industrial Furnace Rim Light
+    const rimLight = new THREE.DirectionalLight(0xf59e0b, 2.8);
+    rimLight.position.set(-16, 22, -26);
     scene.add(rimLight);
+
+    // Floor neon upward bounce
+    const floorLight = new THREE.PointLight(0x00f0ff, 3.2, 45, 1.4);
+    floorLight.position.set(0, 2.5, 0);
+    scene.add(floorLight);
 
     // 5. BUILD FACTORY ARENA
     const arena = factoryArena.build(scene);
 
-    // 6. SPAWN EVACUATION AIRLOCK
+    // 6. SPAWN EVACUATION AIRLOCK WITH VOLUMETRIC HOLOGRAPHIC BEACON
     const airlock = entityFactory.createEvacuationAirlock();
     airlock.position.set(0, 0, 24);
     scene.add(airlock);
+
+    const airlockLight = new THREE.PointLight(0x10b981, 4.5, 26, 1.2);
+    airlockLight.position.set(0, 4, 24);
+    scene.add(airlockLight);
+
+    // Luminous emerald beam rising from the airlock into the ceiling
+    const beaconGeo = new THREE.CylinderGeometry(2.2, 2.2, 16, 24, 1, true);
+    const beaconMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      transparent: true,
+      opacity: 0.32,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
+    beaconMesh.position.set(0, 8, 24);
+    scene.add(beaconMesh);
 
     // 7. SPAWN UNIT-7 (PLAYER) - Positioned on catwalk facing forward
     const unit7: Unit7Entity = entityFactory.createUnit7();
@@ -324,33 +348,35 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       const rightX = Math.cos(effectiveYaw);
       const rightZ = Math.sin(effectiveYaw);
 
-      // C. DYNAMIC THIRD-PERSON CAMERA POSITIONING
+      // C. DYNAMIC PANORAMIC THIRD-PERSON CAMERA (100% UPRIGHT & ROCK-SOLID)
       screenShake.update(delta * 2.2);
 
       const isTitan = s.activeChassis === 'TITAN';
-      const camDist = isTitan ? 11.2 : 6.8;
-      const camHeight = (isTitan ? 6.2 : 3.8) - normY * 1.5;
-      const shoulderOffset = isTitan ? 1.4 : 0.9;
+      const camDist = isTitan ? 12.5 : 8.5;
+      const camHeight = (isTitan ? 8.2 : 5.8) - THREE.MathUtils.clamp(normY, -1.0, 1.0) * 0.8;
+      const shoulderOffset = isTitan ? 1.0 : 0.6;
 
       // Over-the-shoulder chase view relative to current camera yaw
       const targetCamX = activeObj.position.x - fwdX * camDist - rightX * shoulderOffset;
       const targetCamZ = activeObj.position.z - fwdZ * camDist - rightZ * shoulderOffset;
       const targetCamY = activeObj.position.y + camHeight;
 
-      const lerpFactor = Math.min(1.0, delta * 9.0);
-      camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.025;
-      camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.025;
+      const lerpFactor = Math.min(1.0, delta * 8.0);
+      camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.02;
+      camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.02;
       camera.position.z += (targetCamZ - camera.position.z) * lerpFactor;
 
       // Look forward along camera angle with dynamic lookahead
-      const lookDist = isTitan ? 5.5 : 4.5;
+      const lookDist = isTitan ? 4.5 : 3.0;
       const lookTarget = new THREE.Vector3(
-        activeObj.position.x + fwdX * lookDist + rightX * (normX * 1.6),
-        activeObj.position.y + (isTitan ? 3.0 : 1.6) - normY * 0.8,
-        activeObj.position.z + fwdZ * lookDist + rightZ * (normX * 1.6)
+        activeObj.position.x + fwdX * lookDist + rightX * (normX * 1.5),
+        activeObj.position.y + (isTitan ? 2.5 : 1.3),
+        activeObj.position.z + fwdZ * lookDist + rightZ * (normX * 1.5)
       );
+
+      // Enforce strictly upright camera with world up (0, 1, 0) - NEVER mutate Euler rotation.z!
+      camera.up.set(0, 1, 0);
       camera.lookAt(lookTarget);
-      camera.rotation.z = screenShake.angle * 0.08;
 
       // D. MOUSE AIM RAYCASTING
       const ndcX = (mouse.x / window.innerWidth) * 2 - 1;
@@ -883,9 +909,79 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       // Render 3D Scene
       renderer.render(scene, camera);
 
-      // Render 2D Floating Combat Text & Vignettes onto overlay canvas
+      // Render 2D Floating Combat Text, Vignettes & Tactical In-Game Waypoints onto overlay canvas
       if (overlayCtx && overlayCanvas) {
-        vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height);
+        const waypoints: InGameWaypoint[] = [];
+
+        // 1. Evacuation Airlock Waypoint
+        const distToAirlock = activeObj.position.distanceTo(airlock.position);
+        waypoints.push({
+          pos: new THREE.Vector3(0, 3.2, 24),
+          label: 'EVACUATION AIRLOCK',
+          sublabel: `AIRLOCK PAD (${Math.round(distToAirlock)}m)`,
+          color: '#10b981',
+          dist: distToAirlock,
+        });
+
+        // 2. Trapped / Escorted Scientists
+        scientists.forEach((sc, idx) => {
+          if (sc.group.position.x < 500) {
+            const dist = activeObj.position.distanceTo(sc.group.position);
+            if (!sc.isRescued) {
+              waypoints.push({
+                pos: sc.group.position.clone().add(new THREE.Vector3(0, 2.6, 0)),
+                label: `SCIENTIST #${idx + 1}`,
+                sublabel: `APPROACH TO RESCUE (${Math.round(dist)}m)`,
+                color: '#fbbf24',
+                dist,
+              });
+            } else {
+              waypoints.push({
+                pos: sc.group.position.clone().add(new THREE.Vector3(0, 2.6, 0)),
+                label: `SCIENTIST #${idx + 1} [FOLLOWING]`,
+                sublabel: 'LEAD TO GREEN AIRLOCK PAD',
+                color: '#34d399',
+                dist,
+              });
+            }
+          }
+        });
+
+        // 3. MK-IV Titan Mech Waypoint
+        if (!s.bossActive) {
+          const distTitan = activeObj.position.distanceTo(titan.group.position);
+          if (!s.isTitanAllied) {
+            waypoints.push({
+              pos: titan.group.position.clone().add(new THREE.Vector3(0, 5.8, 0)),
+              label: 'MK-IV TITAN MECH',
+              sublabel: `HOLD RMB TO HACK (${Math.round(distTitan)}m)`,
+              color: '#00f0ff',
+              dist: distTitan,
+            });
+          } else if (s.activeChassis === 'UNIT7') {
+            waypoints.push({
+              pos: titan.group.position.clone().add(new THREE.Vector3(0, 5.8, 0)),
+              label: 'MK-IV TITAN (ALLIED)',
+              sublabel: distTitan < 8 ? 'PRESS [E] TO PILOT MECH!' : `GET CLOSER (${Math.round(distTitan)}m)`,
+              color: '#38bdf8',
+              dist: distTitan,
+            });
+          }
+        }
+
+        // 4. CORE-X Boss Waypoint (Wave 2)
+        if (s.bossActive && boss.isAwake) {
+          const distBoss = activeObj.position.distanceTo(boss.group.position);
+          waypoints.push({
+            pos: boss.group.position.clone().add(new THREE.Vector3(0, 5.8, 0)),
+            label: 'APEX THREAT: CORE-X',
+            sublabel: `${Math.max(0, Math.round(boss.hp))} HP (${Math.round(distBoss)}m)`,
+            color: '#ef4444',
+            dist: distBoss,
+          });
+        }
+
+        vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, waypoints);
       }
 
       animId = requestAnimationFrame(loop);

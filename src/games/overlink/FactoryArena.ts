@@ -13,7 +13,7 @@ export interface ArenaComponents {
 }
 
 export class FactoryArenaBuilder {
-  // Generate procedural reflective metallic floor texture with glowing cyan circuit traces
+  // Generate procedural reflective metallic floor texture with vibrant glowing cyan circuit traces
   private createCircuitFloorTexture(): THREE.CanvasTexture {
     const size = 1024;
     const canvas = document.createElement('canvas');
@@ -21,30 +21,30 @@ export class FactoryArenaBuilder {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Dark metallic steel base with realistic metal panels
-    ctx.fillStyle = '#080c14';
+    // Polished Slate Titanium base
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, size, size);
 
-    // Industrial grid tiles
+    // Industrial grid tiles with glowing neon seams
     const tileSize = 128;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
     ctx.lineWidth = 2;
     for (let x = 0; x < size; x += tileSize) {
       for (let y = 0; y < size; y += tileSize) {
         ctx.strokeRect(x, y, tileSize, tileSize);
-        // Corner rivets
-        ctx.fillStyle = '#334155';
-        ctx.fillRect(x + 5, y + 5, 4, 4);
-        ctx.fillRect(x + tileSize - 9, y + 5, 4, 4);
-        ctx.fillRect(x + 5, y + tileSize - 9, 4, 4);
-        ctx.fillRect(x + tileSize - 9, y + tileSize - 9, 4, 4);
+        // Corner tech accents
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(x + 4, y + 4, 3, 3);
+        ctx.fillRect(x + tileSize - 7, y + 4, 3, 3);
+        ctx.fillRect(x + 4, y + tileSize - 7, 3, 3);
+        ctx.fillRect(x + tileSize - 7, y + tileSize - 7, 3, 3);
       }
     }
 
-    // Glowing cyan circuit tracks (like the concept art)
+    // Glowing vibrant cyan circuit tracks
     ctx.strokeStyle = '#00f0ff';
     ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 18;
     ctx.lineWidth = 4;
 
     const drawCircuitPath = (points: [number, number][]) => {
@@ -56,45 +56,54 @@ export class FactoryArenaBuilder {
       ctx.stroke();
 
       const last = points[points.length - 1];
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = '#67e8f9';
       ctx.beginPath();
-      ctx.arc(last[0], last[1], 6, 0, Math.PI * 2);
+      ctx.arc(last[0], last[1], 7, 0, Math.PI * 2);
       ctx.fill();
     };
 
-    // Main bus lines running across factory floor
+    // Interconnected cyber circuit grid across factory floor
     drawCircuitPath([[64, 128], [256, 128], [384, 256], [384, 512]]);
     drawCircuitPath([[512, 64], [512, 384], [640, 512], [896, 512]]);
     drawCircuitPath([[128, 640], [384, 640], [512, 768], [800, 768]]);
     drawCircuitPath([[768, 256], [896, 256], [960, 320], [960, 640]]);
+    drawCircuitPath([[256, 512], [256, 768], [384, 896]]);
+    drawCircuitPath([[640, 256], [768, 128], [896, 128]]);
+
+    // Hazard caution borders around edges
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(0, 0, size, 12);
+    ctx.fillRect(0, size - 12, size, 12);
+    ctx.fillRect(0, 0, 12, size);
+    ctx.fillRect(size - 12, 0, 12, size);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(5, 5);
+    texture.repeat.set(4, 4);
     return texture;
   }
 
   // Build the complete factory arena
   public build(scene: THREE.Scene): ArenaComponents {
-    // 1. Reflective Metallic Floor
+    // 1. Reflective Metallic Floor (Lustrous, bright cyber finish)
     const floorGeo = new THREE.PlaneGeometry(80, 80);
     const floorTexture = this.createCircuitFloorTexture();
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTexture,
-      roughness: 0.22,
-      metalness: 0.88,
+      roughness: 0.18,
+      metalness: 0.82,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // 2. Industrial Yellow Safety Catwalk (Foreground as in Concept Art)
+    // 2. Industrial Yellow Safety Catwalk (Flush diamond plate base)
     const catwalk = new THREE.Group();
     const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.35,
+      color: 0x1e293b,
+      roughness: 0.3,
       metalness: 0.85,
     });
     const yellowRailMat = new THREE.MeshStandardMaterial({
@@ -109,27 +118,6 @@ export class FactoryArenaBuilder {
     platform.position.set(-6, 0.02, 5);
     platform.receiveShadow = true;
     catwalk.add(platform);
-
-    // Yellow Pipe Safety Railings placed on the perimeter edge (behind player)
-    const pipeGeoH = new THREE.CylinderGeometry(0.06, 0.06, 16, 8);
-    pipeGeoH.rotateZ(Math.PI / 2);
-    const pipeGeoV = new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8);
-
-    // Back perimeter rails (at z = 9.8 behind player, never blocking forward view)
-    const topRail = new THREE.Mesh(pipeGeoH, yellowRailMat);
-    topRail.position.set(-6, 1.4, 9.8);
-    catwalk.add(topRail);
-
-    const midRail = new THREE.Mesh(pipeGeoH, yellowRailMat);
-    midRail.position.set(-6, 0.8, 9.8);
-    catwalk.add(midRail);
-
-    // Vertical posts along back perimeter railing
-    for (let x = -14; x <= 2; x += 2.6) {
-      const post = new THREE.Mesh(pipeGeoV, yellowRailMat);
-      post.position.set(x, 0.8, 9.8);
-      catwalk.add(post);
-    }
     scene.add(catwalk);
 
     // 3. Heavy Industrial Cover Crates (Ribbed metal shipping crates with hazard stripes)
@@ -206,13 +194,21 @@ export class FactoryArenaBuilder {
       metalness: 0.8,
     });
 
-    // Cross-ceiling I-Beams
+    // Cross-ceiling I-Beams with luminous cyber light bars
     const beamGeo = new THREE.BoxGeometry(80, 1.2, 1.2);
-    [-12, 0, 12].forEach((z) => {
+    const neonMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const warmNeonMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+    const lightBarGeo = new THREE.BoxGeometry(64, 0.15, 0.25);
+
+    [-12, 0, 12].forEach((z, i) => {
       const beam = new THREE.Mesh(beamGeo, girderMat);
       beam.position.set(0, 13, z);
       beam.castShadow = true;
       scene.add(beam);
+
+      const lightBar = new THREE.Mesh(lightBarGeo, i === 1 ? warmNeonMat : neonMat);
+      lightBar.position.set(0, 12.35, z);
+      scene.add(lightBar);
     });
 
     // Overhead Hanging Crane Hook (like concept art)

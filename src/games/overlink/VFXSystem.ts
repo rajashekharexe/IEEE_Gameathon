@@ -22,6 +22,15 @@ interface SparkParticle {
   size: number;
 }
 
+export interface InGameWaypoint {
+  pos: THREE.Vector3;
+  label: string;
+  sublabel?: string;
+  color: string;
+  icon?: string;
+  dist?: number;
+}
+
 export class VFXSystem {
   private maxParticles = 600;
   private sparks: SparkParticle[] = [];
@@ -191,8 +200,14 @@ export class VFXSystem {
     }
   }
 
-  // Render 2D Floating Combat Text onto overlay Canvas
-  public renderOverlay(ctx: CanvasRenderingContext2D, camera: THREE.Camera, width: number, height: number) {
+  // Render 2D Floating Combat Text & In-Game Waypoints onto overlay Canvas
+  public renderOverlay(
+    ctx: CanvasRenderingContext2D,
+    camera: THREE.Camera,
+    width: number,
+    height: number,
+    waypoints?: InGameWaypoint[]
+  ) {
     ctx.clearRect(0, 0, width, height);
 
     // 1. Draw Screen Edge Vignette
@@ -230,8 +245,70 @@ export class VFXSystem {
       ctx.restore();
     }
 
-    // 2. Draw Floating Texts projected to 2D
     const tempVec = new THREE.Vector3();
+
+    // 2. Render In-Game Holographic Waypoints
+    if (waypoints && waypoints.length > 0) {
+      for (const wp of waypoints) {
+        tempVec.copy(wp.pos);
+        tempVec.project(camera);
+
+        if (tempVec.z > -1.0 && tempVec.z < 1.0) {
+          const sx = (tempVec.x * 0.5 + 0.5) * width;
+          const sy = (-tempVec.y * 0.5 + 0.5) * height;
+
+          if (sx > 40 && sx < width - 40 && sy > 40 && sy < height - 40) {
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const labelText = wp.label;
+            const subText = wp.sublabel || (wp.dist !== undefined ? `${Math.round(wp.dist)}m` : '');
+
+            ctx.font = 'bold 11px monospace';
+            const textWidth = Math.max(ctx.measureText(labelText).width, ctx.measureText(subText).width) + 20;
+            const boxHeight = subText ? 32 : 20;
+
+            // Translucent cyber badge background
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+            ctx.strokeStyle = wp.color;
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(sx - textWidth / 2, sy - boxHeight / 2, textWidth, boxHeight, 6);
+            } else {
+              ctx.rect(sx - textWidth / 2, sy - boxHeight / 2, textWidth, boxHeight);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            // Downward pointer arrow
+            ctx.fillStyle = wp.color;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy + boxHeight / 2 + 5);
+            ctx.lineTo(sx - 4, sy + boxHeight / 2);
+            ctx.lineTo(sx + 4, sy + boxHeight / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Waypoint Label
+            ctx.fillStyle = wp.color;
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(labelText, sx, subText ? sy - 6 : sy);
+
+            if (subText) {
+              ctx.fillStyle = '#94a3b8';
+              ctx.font = '9px monospace';
+              ctx.fillText(subText, sx, sy + 6);
+            }
+            ctx.restore();
+          }
+        }
+      }
+    }
+
+    // 3. Draw Floating Texts projected to 2D
     ctx.save();
     for (const t of this.floatingTexts) {
       tempVec.copy(t.worldPos);

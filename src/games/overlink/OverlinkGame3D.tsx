@@ -2,11 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { factoryArena } from './FactoryArena';
 import { entityFactory } from './EntityModels';
-import type { Unit7Entity, TitanMechEntity, ScientistEntity } from './EntityModels';
+import type { TitanMechEntity, ScientistEntity } from './EntityModels';
+import { humanHeroFactory } from './HumanHeroCharacter';
+import type { HumanHeroEntity } from './HumanHeroCharacter';
 import { enforcerRobotFactory } from './EnforcerRobotModel';
 import type { EnforcerRobotEntity } from './EnforcerRobotModel';
-import { humanSniperFactory } from './HumanSniperAlly';
-import type { HumanSniperEntity } from './HumanSniperAlly';
 import { bossFactory } from './BossModel';
 import type { BossCoreXEntity } from './BossModel';
 import { NeuralTetherEngine } from './TetherEngine';
@@ -96,8 +96,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     enforcersEliminated: 0,
     totalEnforcers: 2,
     activeBanner: null as MissionBannerData | null,
-    activeWeapon: 'PULSE' as 'PULSE' | 'SNIPER',
-    sniperAllyRescued: false,
+    activeWeapon: 'SNIPER' as 'PULSE' | 'SNIPER',
+    sniperAllyRescued: true,
     sniperAllyHp: 350,
     sniperAllyMaxHp: 350,
     sniperAllyDancing: false,
@@ -192,8 +192,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     beaconMesh.position.set(0, 9, 48);
     scene.add(beaconMesh);
 
-    // 7. SPAWN UNIT-7 (PLAYER) - Positioned on catwalk facing forward
-    const unit7: Unit7Entity = entityFactory.createUnit7();
+    // 7. SPAWN HUMAN HERO (MAIN PLAYABLE CHARACTER) - Operative Manuel armed with 3D KSR-29 AP Sniper Rifle
+    const unit7: HumanHeroEntity = humanHeroFactory.createHero();
     unit7.group.position.set(-5, 0, 4);
     unit7.group.rotation.y = -0.35;
     scene.add(unit7.group);
@@ -204,7 +204,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     titan.group.rotation.y = Math.PI - 0.35;
     scene.add(titan.group);
 
-    // 9. SPAWN TRAPPED SCIENTISTS - Positioned tactically in the facility
+    // 9. SPAWN TRAPPED RESEARCH SCIENTISTS - Positioned tactically in the facility
     const scientists: ScientistEntity[] = [
       entityFactory.createScientist(),
       entityFactory.createScientist(),
@@ -212,10 +212,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     scientists[0].group.position.set(18, 0, 12);
     scientists[1].group.position.set(-22, 0, 18);
     scientists.forEach((sc) => scene.add(sc.group));
-
-    // 9b. SPAWN RESISTANCE MARKSMAN (Specialist Manuel wielding 3D KSR-29 AP Sniper Rifle)
-    const sniperAlly: HumanSniperEntity = humanSniperFactory.createHumanSniper(new THREE.Vector3(14, 0, 14));
-    scene.add(sniperAlly.group);
 
     // 10. SPAWN SCOUT ENEMY BOTS (6 hostile scouts spread across 160m warzone)
     interface ActiveScout {
@@ -610,16 +606,14 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
       if (input.isActionPressed('commandAlly') && allyCommandCooldown <= 0) {
         allyCommandCooldown = 0.4;
-        if (sniperAlly.isRescued) {
-          if (sniperAlly.isDancing) {
-            sniperAlly.stopVictoryDance();
-            triggerBanner('INFO', 'MANUEL: TAKING AIM', 'SPECIALIST MANUEL LOCKED ON HOSTILES');
+        if (s.activeChassis === 'UNIT7') {
+          unit7.toggleVictoryDance();
+          if (unit7.isDancing) {
+            triggerBanner('SUCCESS', 'VICTORY DANCE!', 'RESISTANCE CELEBRATION PROTOCOL ACTIVE! [F] TO COMBAT');
+            sounds.playPowerup();
           } else {
-            sniperAlly.playVictoryDance();
-            triggerBanner('SUCCESS', 'MANUEL: VICTORY DANCE!', 'RESISTANCE CELEBRATION PROTOCOL ACTIVE!');
+            triggerBanner('INFO', 'COMBAT STANCE', 'OPERATIVE MANUEL: KSR-29 AP SNIPER LOCKED ON HOSTILES');
           }
-        } else {
-          vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 'MANUEL NOT RESCUED YET (CHECK WAYPOINT)', '#f59e0b', 16);
         }
       }
 
@@ -660,6 +654,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             s.ammo = Math.max(0, s.ammo - 2);
             sounds.playSniperShot();
             screenShake.addTrauma(0.18);
+            unit7.triggerRecoil();
             vfx.emitSparks(unit7.weaponMuzzle, 10, 0x10b981, 8);
 
             const projMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
@@ -674,6 +669,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
             s.ammo--;
             sounds.playShoot(900);
             screenShake.addTrauma(0.04);
+            unit7.triggerRecoil();
             vfx.emitSparks(unit7.weaponMuzzle, 4, 0x00f0ff, 4);
 
             const projMesh = new THREE.Mesh(projGeo, playerProjMat);
@@ -928,7 +924,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
                 if (s.scoutsEliminated >= s.totalScouts) {
                   triggerBanner('SUCCESS', 'AIRSPACE SECURED!', 'ALL 6 HOSTILE AIR RECON SCOUTS DESTROYED (+1,000 PTS)');
                   s.score += 1000;
-                  sniperAlly.playVictoryDance();
                   window.setTimeout(() => {
                     triggerBanner('INFO', 'NEW MISSION DIRECTIVE', 'RESCUE TRAPPED RESEARCH PERSONNEL (0/2)');
                   }, 3800);
@@ -969,7 +964,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
                 if (s.enforcersEliminated >= s.totalEnforcers) {
                   triggerBanner('SUCCESS', 'ENFORCERS DESTROYED!', 'PERIMETER DEFENSE CLEARED (+2,000 PTS)');
                   s.score += 2000;
-                  sniperAlly.playVictoryDance();
                   window.setTimeout(() => {
                     if (!s.isTitanAllied) {
                       triggerBanner('INFO', 'DIRECTIVE: OVERLINK', 'HACK MK-IV TITAN MECH (HOLD RMB)');
@@ -1003,7 +997,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               // BOSS DEFEATED!
               s.bossActive = false;
               s.bossHp = 0;
-              sniperAlly.playVictoryDance();
               sounds.playExplosion('large');
               screenShake.addTrauma(1.0);
               vfx.emitSparks(boss.group.position, 90, 0xff0044, 16, true);
@@ -1129,57 +1122,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       });
 
-      // L2. SPECIALIST MANUEL (RESISTANCE MARKSMAN // 3D HUMAN WIELDING KSR-29 AP SNIPER RIFLE)
-      if (!sniperAlly.isRescued) {
-        if (activeObj.position.distanceTo(sniperAlly.group.position) < 4.5) {
-          sniperAlly.isRescued = true;
-          s.sniperAllyRescued = true;
-          s.score += 2000;
-          sounds.playPowerup();
-          sounds.playSniperShot();
-          screenShake.addTrauma(0.15);
-          vfx.emitSparks(sniperAlly.group.position, 35, 0x10b981, 10, true);
-          vfx.emitText(
-            sniperAlly.group.position.clone().add(new THREE.Vector3(0, 3.2, 0)),
-            'SPECIALIST MANUEL RESCUED & ARMED!',
-            '#10b981',
-            24,
-            true
-          );
-          triggerBanner(
-            'SUCCESS',
-            'RESISTANCE MARKSMAN ACTIVE!',
-            'SPECIALIST MANUEL DEPLOYED WITH KSR-29 AP SNIPER RIFLE! (+2,000 PTS)'
-          );
-        }
-      }
-
-      // Collect living hostiles for Manuel to target
-      const activeEnemiesList: Array<{ group: THREE.Object3D; hp: number; isAlive: boolean }> = [];
-      scouts.forEach((sc) => {
-        if (sc.hp > 0) activeEnemiesList.push({ group: sc.group, hp: sc.hp, isAlive: true });
-      });
-      enforcers.forEach((enf) => {
-        if (enf.isAlive && enf.hp > 0) activeEnemiesList.push({ group: enf.group, hp: enf.hp, isAlive: true });
-      });
-      if (s.bossActive && boss.isAwake && boss.hp > 0) {
-        activeEnemiesList.push({ group: boss.group, hp: boss.hp, isAlive: true });
-      }
-
-      const allyShot = sniperAlly.update(delta, activeObj.position, activeEnemiesList, vfx);
-      if (allyShot.fired && allyShot.targetHit) {
-        // Draw sniper bullet tracer
-        const trailMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
-        trailMesh.position.copy(sniperAlly.muzzlePos);
-        const trailDir = allyShot.targetHit.group.position.clone().sub(sniperAlly.muzzlePos).normalize();
-        trailMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), trailDir);
-        scene.add(trailMesh);
-        projectiles.push({ mesh: trailMesh, dir: trailDir, life: 0.15, isSniperShot: true });
-        screenShake.addTrauma(0.06);
-      }
-      s.sniperAllyHp = sniperAlly.hp;
-      s.sniperAllyDancing = sniperAlly.isDancing;
-
       // M. PUSH STATS TO REACT HUD
       onUpdateStats({
         health: s.health,
@@ -1207,10 +1149,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         totalEnforcers: s.totalEnforcers,
         activeBanner: s.activeBanner,
         activeWeapon: s.activeWeapon,
-        sniperAllyRescued: s.sniperAllyRescued,
-        sniperAllyHp: s.sniperAllyHp,
-        sniperAllyMaxHp: s.sniperAllyMaxHp,
-        sniperAllyDancing: s.sniperAllyDancing,
+        sniperAllyRescued: true,
+        sniperAllyHp: 350,
+        sniperAllyMaxHp: 350,
+        sniperAllyDancing: unit7.isDancing,
       });
 
       // Render 3D Scene
@@ -1219,19 +1161,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       // Render 2D Floating Combat Text, Vignettes & Tactical In-Game Waypoints onto overlay canvas
       if (overlayCtx && overlayCanvas) {
         const waypoints: InGameWaypoint[] = [];
-
-        // 0. Specialist Manuel (Human Sniper Ally) Waypoint
-        if (!sniperAlly.isRescued) {
-          const distToManuel = activeObj.position.distanceTo(sniperAlly.group.position);
-          waypoints.push({
-            pos: sniperAlly.group.position.clone().add(new THREE.Vector3(0, 2.5, 0)),
-            label: 'SPECIALIST MANUEL (SNIPER ALLY)',
-            sublabel: `PINNED DOWN // RESCUE (${Math.round(distToManuel)}m)`,
-            color: '#10b981',
-            icon: '🎯',
-            dist: distToManuel,
-          });
-        }
 
         // 1. Evacuation Airlock Waypoint
         const distToAirlock = activeObj.position.distanceTo(airlock.position);

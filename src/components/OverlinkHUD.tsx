@@ -32,9 +32,9 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
             <div className="flex items-center gap-2 mt-0.5">
               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700 text-[10px] font-mono">
                 <Cpu className="w-3 h-3 text-cyan-400" />
-                <span className="text-slate-400">CHASSIS:</span>
-                <span className={stats.activeChassis === 'TITAN' ? 'text-amber-400 font-bold' : 'text-cyan-400 font-bold'}>
-                  {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN (PILOTING)' : 'UNIT-7 (CYBER DROID)'}
+                <span className="text-slate-400">OPERATIVE:</span>
+                <span className={stats.activeChassis === 'TITAN' ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                  {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN (PILOTING)' : 'OPERATIVE MANUEL (KSR-29 AP SNIPER)'}
                 </span>
               </div>
               {onOpenJudgeModal && (
@@ -128,27 +128,21 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
                   <span>Clear Air Scouts [{stats.scoutsEliminated}/{stats.totalScouts}]</span>
                 </div>
 
-                {/* 2. Rescue Trapped Personnel & Marksman Manuel */}
-                <div className={`flex items-center gap-2 ${stats.sniperAllyRescued ? 'text-emerald-400 font-bold' : stats.scoutsEliminated >= stats.totalScouts ? 'text-emerald-300 font-bold animate-pulse' : 'text-slate-400'}`}>
-                  <span>{stats.sniperAllyRescued ? '✓' : '2.'}</span>
-                  <span>{stats.sniperAllyRescued ? 'Specialist Manuel Armed [KSR-29 AP]' : 'Rescue Specialist Manuel (Outpost)'}</span>
-                </div>
-
-                {/* 3. Rescue Scientists */}
-                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : stats.sniperAllyRescued ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
-                  <span>{stats.rescuedScientists >= stats.totalScientists ? '✓' : '3.'}</span>
+                {/* 2. Rescue Scientists */}
+                <div className={`flex items-center gap-2 ${stats.rescuedScientists >= stats.totalScientists ? 'text-emerald-400 line-through' : stats.scoutsEliminated >= stats.totalScouts ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
+                  <span>{stats.rescuedScientists >= stats.totalScientists ? '✓' : '2.'}</span>
                   <span>Rescue Scientists [{stats.rescuedScientists}/{stats.totalScientists}]</span>
                 </div>
 
-                {/* 4. Neutralize 3D Heavy Combat Enforcers */}
+                {/* 3. Neutralize 3D Heavy Combat Enforcers */}
                 <div className={`flex items-center gap-2 ${stats.enforcersEliminated >= stats.totalEnforcers ? 'text-emerald-400 line-through' : (stats.rescuedScientists >= stats.totalScientists || stats.enforcersEliminated > 0) ? 'text-rose-400 font-bold animate-pulse' : 'text-slate-400'}`}>
-                  <span>{stats.enforcersEliminated >= stats.totalEnforcers ? '✓' : '4.'}</span>
+                  <span>{stats.enforcersEliminated >= stats.totalEnforcers ? '✓' : '3.'}</span>
                   <span>Destroy 3D Enforcers [{stats.enforcersEliminated}/{stats.totalEnforcers}]</span>
                 </div>
 
-                {/* 5. Hack & Pilot MK-IV Titan */}
+                {/* 4. Hack & Pilot MK-IV Titan */}
                 <div className={`flex items-center gap-2 ${stats.activeChassis === 'TITAN' ? 'text-emerald-400 font-bold' : stats.isTitanAllied ? 'text-amber-300 animate-pulse font-bold' : 'text-cyan-400'}`}>
-                  <span>{stats.isTitanAllied ? '✓' : '5.'}</span>
+                  <span>{stats.isTitanAllied ? '✓' : '4.'}</span>
                   <span>{stats.activeChassis === 'TITAN' ? 'Piloting MK-IV Titan!' : stats.isTitanAllied ? 'Titan Overridden! Press [E] to Pilot' : 'Hack MK-IV Titan (Hold RMB)'}</span>
                 </div>
               </>
@@ -263,7 +257,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
         {/* Bottom Left: Health, Energy & Abilities */}
         <div className="flex flex-col gap-2 min-w-[260px]">
           <div className="text-lg font-black font-mono text-cyan-400 tracking-wider">
-            {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN' : 'Unit-7'}
+            {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN' : 'OPERATIVE MANUEL'}
           </div>
 
           {/* Health Bar */}
@@ -340,7 +334,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">R</span> Reload</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">RMB</span> Hack</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">E</span> Pilot Mech</div>
-            <div><span className="text-emerald-400 font-bold bg-slate-800 px-1 py-0.5 rounded">T</span> Command Manuel</div>
+            <div><span className="text-emerald-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F</span> Victory Dance</div>
             <div><span className="text-cyan-400 font-bold bg-slate-800 px-1 py-0.5 rounded">Shift</span> Dash/Shield</div>
             <div><span className="text-amber-400 font-bold bg-slate-800 px-1 py-0.5 rounded">F1/G</span> God Mode</div>
             {onOpenJudgeModal && (

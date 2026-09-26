@@ -39,7 +39,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, highScore, on
           <p className="text-amber-400 font-bold mb-1">
             "The robots were created to help humans... but something has gone wrong."
           </p>
-          OmniCorp's central AI has turned the factory automatons into killers. As <b className="text-cyan-400">Unit-7</b>, project your <b className="text-cyan-400">Neural Tether</b> to hack rogue mechs from within, protect trapped human scientists, and restore the Prime Directive.
+          OmniCorp's central AI has turned the factory automatons into killers. As <b className="text-emerald-400">Operative Manuel</b> armed with the high-caliber <b className="text-emerald-400">KSR-29 AP Sniper Rifle</b>, project your <b className="text-cyan-400">Neural Tether</b> to hack rogue mechs from within, rescue trapped research scientists, and restore the Prime Directive.
         </div>
 
         {/* Controls Guide */}

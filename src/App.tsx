@@ -59,6 +59,8 @@ export const App: React.FC = () => {
     hackingAnimState: 'NONE',
     activeAllyTimer: null,
     cinematicIntroActive: false,
+    fps: 120,
+    isPointerLocked: false,
   });
 
   // Global key bindings

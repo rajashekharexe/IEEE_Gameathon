@@ -118,8 +118,19 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
           )}
         </div>
 
-        {/* TOP RIGHT: SCORE & LEVEL */}
+        {/* TOP RIGHT: SCORE, LEVEL & FPS GAUGE */}
         <div className="flex flex-col items-end gap-1.5 min-w-[200px]">
+          {/* Real-Time Ultra FPS Badge */}
+          <div className="bg-slate-950/90 border border-emerald-500/60 px-3 py-1 rounded-lg flex items-center gap-2 shadow-[0_0_12px_rgba(16,185,129,0.35)]">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="text-xs font-black text-emerald-400 tracking-wider">
+              {stats.fps || 120} FPS
+            </span>
+            <span className="text-[9px] text-emerald-300/80 font-bold uppercase tracking-wider">
+              ULTRA SMOOTH
+            </span>
+          </div>
+
           <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800 px-4 py-2 rounded-xl shadow-xl text-right">
             <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">
               SCORE
@@ -146,6 +157,28 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
           )}
         </div>
       </div>
+
+      {/* FREE FIRE / PUBG HARDWARE-ACCELERATED COMBAT CROSSHAIR */}
+      {!stats.cinematicIntroActive && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+          <div className="relative w-8 h-8 flex items-center justify-center">
+            {/* Center pinpoint */}
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
+            {/* 4 Brackets */}
+            <div className="absolute top-0 w-0.5 h-2 bg-emerald-400/90 shadow-[0_0_4px_#10b981]" />
+            <div className="absolute bottom-0 w-0.5 h-2 bg-emerald-400/90 shadow-[0_0_4px_#10b981]" />
+            <div className="absolute left-0 h-0.5 w-2 bg-emerald-400/90 shadow-[0_0_4px_#10b981]" />
+            <div className="absolute right-0 h-0.5 w-2 bg-emerald-400/90 shadow-[0_0_4px_#10b981]" />
+          </div>
+
+          {/* Mouse look hint when unlocked */}
+          {!stats.isPointerLocked && (
+            <div className="absolute top-1/2 mt-10 bg-slate-950/85 border border-slate-700/80 px-3 py-1 rounded-full text-[11px] text-slate-300 font-mono tracking-wider animate-pulse">
+              CLICK SCREEN FOR PUBG / FREE FIRE MOUSE LOOK • ESC TO UNLOCK
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2. CENTER INTERACTIVE HACKING PROMPT & ANIMATION */}
       <div className="flex flex-col items-center justify-center my-auto pointer-events-none">

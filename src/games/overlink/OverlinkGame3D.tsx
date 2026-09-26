@@ -74,6 +74,8 @@ export interface OverlinkStats {
   hackingAnimState: 'NONE' | 'HACKING' | 'SUCCESS';
   activeAllyTimer: number | null;
   cinematicIntroActive: boolean;
+  fps: number;
+  isPointerLocked: boolean;
 }
 
 interface OverlinkGame3DProps {
@@ -83,7 +85,7 @@ interface OverlinkGame3DProps {
   onVictory: () => void;
 }
 
-export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
+export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
   godMode,
   onUpdateStats,
   onGameOver,
@@ -133,6 +135,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     hackingAnimState: 'NONE' as 'NONE' | 'HACKING' | 'SUCCESS',
     activeAllyTimer: null as number | null,
     cinematicIntroActive: false,
+    fps: 120,
+    isPointerLocked: false,
     godMode,
     isRunning: true,
   });
@@ -170,12 +174,15 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
     // 3. HIGH-PERFORMANCE RENDERER (Locked 60 FPS!)
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: false,
       powerPreference: 'high-performance',
       precision: 'mediump',
+      stencil: false,
+      depth: true,
+      alpha: false,
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.15));
+    renderer.setPixelRatio(1);
     renderer.shadowMap.enabled = false;
     container.appendChild(renderer.domElement);
 
@@ -344,6 +351,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     let cameraYaw = Math.PI; // Starts facing North towards enemy foundry
     let cameraPitch = 0.05; // Forward horizon eye-level view
     let isPointerLocked = false;
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+    let currentFps = 120;
 
     const handleContainerClick = () => {
       if (document.pointerLockElement !== container && container) {
@@ -1110,7 +1120,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         });
       }
 
-      // L. UPDATE REACT HUD STATS (Throttled to 20Hz for Maximum 60FPS Performance!)
+      // L. UPDATE REACT HUD STATS (Throttled for Ultra 90-120+ FPS Performance)
       hudThrottleTimer += delta;
       const isCriticalHudUpdate =
         s.health <= 0 ||
@@ -1119,7 +1129,18 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         s.hackingAnimState !== prevHackingState ||
         s.activeBanner !== prevBanner;
 
-      if (hudThrottleTimer >= 0.05 || isCriticalHudUpdate) {
+      // Real-time FPS Calculation (350ms sample window)
+      frameCount++;
+      const nowPerf = performance.now();
+      if (nowPerf - lastFpsTime >= 350) {
+        currentFps = Math.round((frameCount * 1000) / (nowPerf - lastFpsTime));
+        frameCount = 0;
+        lastFpsTime = nowPerf;
+        s.fps = currentFps;
+        s.isPointerLocked = isPointerLocked;
+      }
+
+      if (hudThrottleTimer >= 0.10 || isCriticalHudUpdate) {
         hudThrottleTimer = 0;
         prevHackingState = s.hackingAnimState;
         prevBanner = s.activeBanner;
@@ -1165,57 +1186,21 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           hackingAnimState: s.hackingAnimState,
           activeAllyTimer: s.activeAllyTimer,
           cinematicIntroActive: s.cinematicIntroActive,
+          fps: s.fps,
+          isPointerLocked: s.isPointerLocked,
         });
       }
 
       // Render 3D Scene
       renderer.render(scene, camera);
 
-      // Render 2D Combat Reticle & Floating Combat Text
+      // Render 2D Floating Combat Text (Only clears and draws when damage texts exist)
       if (overlayCtx && overlayCanvas) {
-        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-        // Draw Free Fire / PUBG Center Crosshair (Only during active gameplay)
-        if (!s.cinematicIntroActive) {
-          const cx = overlayCanvas.width / 2;
-          const cy = overlayCanvas.height / 2;
-          overlayCtx.save();
-          overlayCtx.lineWidth = 1.5;
-          overlayCtx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
-          overlayCtx.fillStyle = '#10b981';
-
-          // Center dot
-          overlayCtx.beginPath();
-          overlayCtx.arc(cx, cy, 2, 0, Math.PI * 2);
-          overlayCtx.fill();
-
-          // 4 tactical reticle brackets
-          const gap = isSprinting ? 14 : 9;
-          const len = 7;
-          overlayCtx.beginPath();
-          overlayCtx.moveTo(cx, cy - gap);
-          overlayCtx.lineTo(cx, cy - gap - len);
-          overlayCtx.moveTo(cx, cy + gap);
-          overlayCtx.lineTo(cx, cy + gap + len);
-          overlayCtx.moveTo(cx - gap, cy);
-          overlayCtx.lineTo(cx - gap - len, cy);
-          overlayCtx.moveTo(cx + gap, cy);
-          overlayCtx.lineTo(cx + gap + len, cy);
-          overlayCtx.stroke();
-
-          // If pointer is not locked yet, show subtle prompt
-          if (!isPointerLocked) {
-            overlayCtx.font = '600 12px monospace';
-            overlayCtx.textAlign = 'center';
-            overlayCtx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-            overlayCtx.fillText('CLICK SCREEN FOR PUBG / FREE FIRE MOUSE LOOK • ESC TO UNLOCK', cx, cy + 34);
-          }
-
-          overlayCtx.restore();
-        }
-
         if (vfx.floatingTexts.length > 0 || vfx.damageFlash > 0.01 || vfx.shieldFlash > 0.01) {
+          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
           vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, []);
+        } else {
+          overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         }
       }
 
@@ -1252,4 +1237,4 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       />
     </div>
   );
-};
+});

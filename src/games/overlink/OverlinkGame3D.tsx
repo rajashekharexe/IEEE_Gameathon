@@ -224,9 +224,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
 
     // 9. SPAWN 3 TRAPPED SCIENTISTS (LEVEL 1 OBJECTIVE: RESCUE 3 HUMANS)
     const scientists: ScientistEntity[] = [
-      entityFactory.createScientist(),
-      entityFactory.createScientist(),
-      entityFactory.createScientist(),
+      entityFactory.createScientist(0),
+      entityFactory.createScientist(1),
+      entityFactory.createScientist(2),
     ];
     scientists[0].group.position.set(-25, 0, 18);
     scientists[1].group.position.set(24, 0, 14);
@@ -1113,8 +1113,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               }
             } else {
               const aAngle = Math.atan2(airlockPos.x - scPos.x, airlockPos.z - scPos.z);
+              sc.group.rotation.y = aAngle;
               scPos.x += Math.sin(aAngle) * 4.5 * delta;
               scPos.z += Math.cos(aAngle) * 4.5 * delta;
+              sc.animateRun?.(time);
             }
           }
         });

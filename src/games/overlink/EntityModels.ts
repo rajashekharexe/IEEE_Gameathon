@@ -33,6 +33,7 @@ export interface ScientistEntity {
   group: THREE.Group;
   isRescued: boolean;
   animateIdle: (time: number) => void;
+  animateRun?: (time: number) => void;
 }
 
 export class EntityModelFactory {
@@ -571,109 +572,364 @@ export class EntityModelFactory {
     };
   }
 
-  // 3. SCIENTIST IN BRIGHT YELLOW HAZMAT SUIT (EXACT MATCH FOR CONCEPT ART)
-  public createScientist(): ScientistEntity {
+  // 3. PHOTOREALISTIC HUMAN SCIENTISTS (REAL HUMAN FACES, SKIN, HAIR, LAB COATS & BADGES)
+  public createScientist(scientistIndex = 0): ScientistEntity {
     const group = new THREE.Group();
 
-    // Bright yellow hazard suit materials
-    const suitMat = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b, // Warm OSHA yellow
-      roughness: 0.55,
+    const profiles = [
+      {
+        name: 'DR. ELENA CHEN',
+        skinColor: 0xf3ceb3,
+        hairColor: 0x18181b,
+        shirtColor: 0x0f766e, // Emerald Teal
+        pantsColor: 0x334155, // Slate
+        shoeColor: 0x0f172a,
+        glassesColor: 0x0284c7,
+        hasPonytail: true,
+        hasBeard: false,
+      },
+      {
+        name: 'DR. MARCUS VANCE',
+        skinColor: 0xd4a373,
+        hairColor: 0x3e2723,
+        shirtColor: 0x881337, // Burgundy Crimson
+        pantsColor: 0x1e293b, // Charcoal
+        shoeColor: 0x27170e,
+        glassesColor: 0xb45309,
+        hasPonytail: false,
+        hasBeard: true,
+      },
+      {
+        name: 'DR. KENJI SATO',
+        skinColor: 0xebd2b4,
+        hairColor: 0x09090b,
+        shirtColor: 0x1d4ed8, // Cobalt Blue
+        pantsColor: 0x1e293b, // Charcoal
+        shoeColor: 0x18181b,
+        glassesColor: 0x64748b,
+        hasPonytail: false,
+        hasBeard: false,
+      },
+    ];
+
+    const p = profiles[scientistIndex % profiles.length];
+
+    // Realistic PBR Human Materials
+    const skinMat = new THREE.MeshStandardMaterial({
+      color: p.skinColor,
+      roughness: 0.65,
+      metalness: 0.05,
+    });
+    const hairMat = new THREE.MeshStandardMaterial({
+      color: p.hairColor,
+      roughness: 0.75,
       metalness: 0.1,
     });
-    const blackRubberMat = new THREE.MeshStandardMaterial({
-      color: 0x111827,
+    const labCoatMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc, // Clean White Lab Coat
+      roughness: 0.5,
+      metalness: 0.05,
+    });
+    const shirtMat = new THREE.MeshStandardMaterial({
+      color: p.shirtColor,
+      roughness: 0.65,
+      metalness: 0.08,
+    });
+    const pantsMat = new THREE.MeshStandardMaterial({
+      color: p.pantsColor,
       roughness: 0.7,
-      metalness: 0.3,
+      metalness: 0.08,
     });
-    const visorGlassMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.1,
-      metalness: 0.9,
+    const shoeMat = new THREE.MeshStandardMaterial({
+      color: p.shoeColor,
+      roughness: 0.45,
+      metalness: 0.2,
+    });
+    const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const irisMat = new THREE.MeshBasicMaterial({ color: 0x1e3a8a });
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const lipMat = new THREE.MeshStandardMaterial({ color: 0xb97268, roughness: 0.6 });
+    const glassesFrameMat = new THREE.MeshStandardMaterial({
+      color: p.glassesColor,
+      roughness: 0.25,
+      metalness: 0.8,
+    });
+    const glassesLensMat = new THREE.MeshPhysicalMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.35,
+      roughness: 0.05,
+      transmission: 0.85,
+    });
+    const lanyardMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+    const badgeMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+    // Master Human Body Hierarchy
+    const bodyPivot = new THREE.Group();
+
+    // A. Human Head & Facial Features
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 1.48, 0);
+
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.16, 12), skinMat);
+    neck.position.y = -0.16;
+    headGroup.add(neck);
+
+    const headGeo = new THREE.SphereGeometry(0.18, 16, 16);
+    headGeo.scale(0.92, 1.08, 0.98);
+    const head = new THREE.Mesh(headGeo, skinMat);
+    headGroup.add(head);
+
+    // Two Human Eyes with Sclera, Iris, and Pupil
+    [-0.055, 0.055].forEach((xSide) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), eyeWhiteMat);
+      eye.position.set(xSide, 0.03, 0.165);
+      headGroup.add(eye);
+
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), irisMat);
+      iris.position.set(xSide, 0.03, 0.185);
+      headGroup.add(iris);
+
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 8), pupilMat);
+      pupil.position.set(xSide, 0.03, 0.197);
+      headGroup.add(pupil);
+
+      const eyebrow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.02), hairMat);
+      eyebrow.position.set(xSide, 0.075, 0.168);
+      headGroup.add(eyebrow);
     });
 
-    // Crouch posture hierarchy
-    const crouchPivot = new THREE.Group();
-    crouchPivot.position.y = 0.8;
+    // Human Nose
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.07, 4), skinMat);
+    nose.rotation.x = Math.PI / 2.2;
+    nose.position.set(0, 0.005, 0.19);
+    headGroup.add(nose);
 
-    // Torso (Yellow Hazmat Jacket)
-    const torsoGeo = new THREE.BoxGeometry(0.7, 0.75, 0.45);
-    const torso = new THREE.Mesh(torsoGeo, suitMat);
-    torso.position.y = 0.5;
-    torso.castShadow = true;
-    crouchPivot.add(torso);
+    // Human Lips
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.015, 0.02), lipMat);
+    mouth.position.set(0, -0.055, 0.17);
+    headGroup.add(mouth);
 
-    // Life-Support Oxygen Backpack
-    const tankGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.6, 12);
-    const tank1 = new THREE.Mesh(tankGeo, blackRubberMat);
-    tank1.position.set(-0.15, 0.5, -0.3);
-    crouchPivot.add(tank1);
-    const tank2 = new THREE.Mesh(tankGeo, blackRubberMat);
-    tank2.position.set(0.15, 0.5, -0.3);
-    crouchPivot.add(tank2);
+    // Human Ears
+    [-0.17, 0.17].forEach((xSide) => {
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.07, 0.04), skinMat);
+      ear.position.set(xSide, 0.02, -0.02);
+      headGroup.add(ear);
+    });
 
-    // Hazmat Hood Helmet
-    const hoodGeo = new THREE.SphereGeometry(0.3, 16, 16);
-    hoodGeo.scale(0.9, 1.0, 0.95);
-    const hood = new THREE.Mesh(hoodGeo, suitMat);
-    hood.position.set(0, 1.05, 0.05);
-    hood.castShadow = true;
-    crouchPivot.add(hood);
+    // Realistic 3D Styled Hair
+    const hairCapGeo = new THREE.SphereGeometry(0.19, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58);
+    const hairCap = new THREE.Mesh(hairCapGeo, hairMat);
+    hairCap.position.set(0, 0.05, -0.02);
+    headGroup.add(hairCap);
 
-    // Black Tinted Face Shield Visor
-    const visorGeo = new THREE.SphereGeometry(0.18, 12, 12, 0, Math.PI);
-    const faceShield = new THREE.Mesh(visorGeo, visorGlassMat);
-    faceShield.position.set(0, 1.05, 0.2);
-    faceShield.rotation.y = -Math.PI / 2;
-    crouchPivot.add(faceShield);
+    if (p.hasPonytail) {
+      const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.28, 8), hairMat);
+      ponytail.rotation.x = -Math.PI / 2.5;
+      ponytail.position.set(0, 0.02, -0.22);
+      headGroup.add(ponytail);
+    }
 
-    // Crouched Arms (Bracing on crates)
-    const armGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2);
-    const leftArm = new THREE.Mesh(armGeo, suitMat);
-    leftArm.position.set(-0.45, 0.4, 0.2);
-    leftArm.rotation.x = Math.PI / 4;
-    crouchPivot.add(leftArm);
+    if (p.hasBeard) {
+      const beard = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.12), hairMat);
+      beard.position.set(0, -0.07, 0.14);
+      headGroup.add(beard);
+    }
 
-    const rightArm = new THREE.Mesh(armGeo, suitMat);
-    rightArm.position.set(0.45, 0.4, 0.2);
-    rightArm.rotation.x = Math.PI / 3;
-    crouchPivot.add(rightArm);
+    // Scientific Research Glasses
+    const glassFrame = new THREE.Group();
+    [-0.055, 0.055].forEach((xSide) => {
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.005, 8, 16), glassesFrameMat);
+      rim.position.set(xSide, 0.03, 0.188);
+      glassFrame.add(rim);
 
-    // Crouched Kneeling Legs
-    const legGeo = new THREE.BoxGeometry(0.24, 0.65, 0.24);
-    const leftLeg = new THREE.Mesh(legGeo, suitMat);
-    leftLeg.position.set(-0.2, -0.2, 0.15);
-    leftLeg.rotation.x = -Math.PI / 3;
-    crouchPivot.add(leftLeg);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.035, 12), glassesLensMat);
+      lens.position.set(xSide, 0.03, 0.188);
+      glassFrame.add(lens);
+    });
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.006, 0.01), glassesFrameMat);
+    bridge.position.set(0, 0.03, 0.19);
+    glassFrame.add(bridge);
+    headGroup.add(glassFrame);
 
-    const rightLeg = new THREE.Mesh(legGeo, suitMat);
-    rightLeg.position.set(0.2, -0.2, 0.15);
-    rightLeg.rotation.x = -Math.PI / 3;
-    crouchPivot.add(rightLeg);
+    // B. Torso & White Lab Coat
+    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.56, 0.26), shirtMat);
+    shirt.position.y = 1.08;
+    bodyPivot.add(shirt);
 
-    // Black Rubber Boots
-    const bootGeo = new THREE.BoxGeometry(0.24, 0.2, 0.35);
-    const leftBoot = new THREE.Mesh(bootGeo, blackRubberMat);
-    leftBoot.position.set(-0.2, -0.5, -0.1);
-    crouchPivot.add(leftBoot);
+    const coatBack = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.68, 0.08), labCoatMat);
+    coatBack.position.set(0, 1.02, -0.11);
+    bodyPivot.add(coatBack);
 
-    const rightBoot = new THREE.Mesh(bootGeo, blackRubberMat);
-    rightBoot.position.set(0.2, -0.5, -0.1);
-    crouchPivot.add(rightBoot);
+    const coatLeft = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.68, 0.28), labCoatMat);
+    coatLeft.position.set(-0.20, 1.02, 0.01);
+    bodyPivot.add(coatLeft);
 
-    group.add(crouchPivot);
+    const coatRight = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.68, 0.28), labCoatMat);
+    coatRight.position.set(0.20, 1.02, 0.01);
+    bodyPivot.add(coatRight);
+
+    [-0.14, 0.14].forEach((xSide) => {
+      const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.25, 0.04), labCoatMat);
+      lapel.position.set(xSide, 1.28, 0.14);
+      lapel.rotation.z = (xSide > 0 ? -1 : 1) * 0.25;
+      bodyPivot.add(lapel);
+    });
+
+    const lanyard = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.012, 6, 16), lanyardMat);
+    lanyard.rotation.x = Math.PI / 2.3;
+    lanyard.position.set(0, 1.25, 0.08);
+    bodyPivot.add(lanyard);
+
+    const badge = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.10, 0.01), badgeMat);
+    badge.position.set(0, 1.06, 0.16);
+    bodyPivot.add(badge);
+
+    // C. Human Arms & Hands
+    const leftArmGroup = new THREE.Group();
+    leftArmGroup.position.set(-0.29, 1.30, 0);
+
+    const leftUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.32, 10), labCoatMat);
+    leftUpperArm.position.y = -0.16;
+    leftArmGroup.add(leftUpperArm);
+
+    const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.048, 0.30, 10), skinMat);
+    leftForearm.position.y = -0.42;
+    leftArmGroup.add(leftForearm);
+
+    const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.025), skinMat);
+    leftHand.position.y = -0.60;
+    leftArmGroup.add(leftHand);
+
+    const datapad = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.20, 0.015), badgeMat);
+    datapad.position.set(0, -0.60, 0.05);
+    datapad.rotation.x = Math.PI / 4;
+    leftArmGroup.add(datapad);
+    bodyPivot.add(leftArmGroup);
+
+    const rightArmGroup = new THREE.Group();
+    rightArmGroup.position.set(0.29, 1.30, 0);
+
+    const rightUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.32, 10), labCoatMat);
+    rightUpperArm.position.y = -0.16;
+    rightArmGroup.add(rightUpperArm);
+
+    const rightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.048, 0.30, 10), skinMat);
+    rightForearm.position.y = -0.42;
+    rightArmGroup.add(rightForearm);
+
+    const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.025), skinMat);
+    rightHand.position.y = -0.60;
+    rightArmGroup.add(rightHand);
+    bodyPivot.add(rightArmGroup);
+
+    // D. Human Legs & Footwear
+    const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.16, 0.24), pantsMat);
+    pelvis.position.y = 0.74;
+    bodyPivot.add(pelvis);
+
+    const leftLegGroup = new THREE.Group();
+    leftLegGroup.position.set(-0.13, 0.70, 0);
+
+    const leftThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.065, 0.38, 10), pantsMat);
+    leftThigh.position.y = -0.19;
+    leftLegGroup.add(leftThigh);
+
+    const leftShin = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.38, 10), pantsMat);
+    leftShin.position.y = -0.52;
+    leftLegGroup.add(leftShin);
+
+    const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.08, 0.22), shoeMat);
+    leftShoe.position.set(0, -0.73, 0.04);
+    leftLegGroup.add(leftShoe);
+    bodyPivot.add(leftLegGroup);
+
+    const rightLegGroup = new THREE.Group();
+    rightLegGroup.position.set(0.13, 0.70, 0);
+
+    const rightThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.065, 0.38, 10), pantsMat);
+    rightThigh.position.y = -0.19;
+    rightLegGroup.add(rightThigh);
+
+    const rightShin = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.38, 10), pantsMat);
+    rightShin.position.y = -0.52;
+    rightLegGroup.add(rightShin);
+
+    const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.08, 0.22), shoeMat);
+    rightShoe.position.set(0, -0.73, 0.04);
+    rightLegGroup.add(rightShoe);
+    bodyPivot.add(rightLegGroup);
+
+    bodyPivot.add(headGroup);
+    group.add(bodyPivot);
+
+    // E. Floating Holographic Distress Beacon
+    const beaconGroup = new THREE.Group();
+    beaconGroup.position.set(0, 2.05, 0);
+
+    const beaconRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.24, 0.02, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0x10b981 })
+    );
+    beaconRing.rotation.x = Math.PI / 2;
+    beaconGroup.add(beaconRing);
+
+    const cross1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.02), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+    const cross2 = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.02), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+    beaconGroup.add(cross1, cross2);
+    group.add(beaconGroup);
 
     const animateIdle = (time: number) => {
-      // Trembling / looking around in fear
-      crouchPivot.position.y = 0.8 + Math.sin(time * 3) * 0.04;
-      hood.rotation.y = Math.sin(time * 1.5) * 0.25;
-      rightArm.rotation.z = Math.sin(time * 6) * 0.1; // waving hand for help
+      // Crouched naturally behind cover in distress
+      bodyPivot.position.y = -0.22;
+      bodyPivot.rotation.x = 0.22;
+
+      leftLegGroup.rotation.x = -0.85;
+      rightLegGroup.rotation.x = -0.55;
+
+      // Head turns anxiously left and right looking for an escort
+      headGroup.rotation.y = Math.sin(time * 2.0) * 0.45;
+      headGroup.rotation.x = Math.sin(time * 1.5) * 0.15;
+
+      // Right arm waves frantically in the air calling for help!
+      rightArmGroup.rotation.x = -Math.PI / 1.5;
+      rightArmGroup.rotation.z = Math.PI / 6 + Math.sin(time * 8.0) * 0.35;
+
+      // Left arm shields body with datapad
+      leftArmGroup.rotation.x = -0.4 + Math.sin(time * 3.0) * 0.05;
+
+      // Beacon pulses
+      beaconRing.rotation.z = time * 2;
+      const bScale = 1.0 + Math.sin(time * 4) * 0.15;
+      beaconGroup.scale.set(bScale, bScale, bScale);
+    };
+
+    const animateRun = (time: number) => {
+      // Stands upright running for safety!
+      bodyPivot.position.y = 0;
+      bodyPivot.rotation.x = 0.12; // forward lean
+
+      // Natural running leg stride
+      const runCycle = time * 9.0;
+      leftLegGroup.rotation.x = Math.sin(runCycle) * 0.75;
+      rightLegGroup.rotation.x = -Math.sin(runCycle) * 0.75;
+
+      // Arms swing back and forth
+      leftArmGroup.rotation.x = -Math.sin(runCycle) * 0.65;
+      rightArmGroup.rotation.x = Math.sin(runCycle) * 0.65;
+      rightArmGroup.rotation.z = 0.1;
+
+      headGroup.rotation.set(0, 0, 0);
+
+      // Hide distress beacon once rescued
+      beaconGroup.visible = false;
     };
 
     return {
       group,
       isRescued: false,
       animateIdle,
+      animateRun,
     };
   }
 

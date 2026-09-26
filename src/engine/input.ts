@@ -22,6 +22,8 @@ export class InputManager {
     isPaused: false,
   };
 
+  private mouseDeltaX = 0;
+  private mouseDeltaY = 0;
   private listenersAttached = false;
   private onGodModeToggle?: (enabled: boolean) => void;
 
@@ -52,6 +54,14 @@ export class InputManager {
     this.listenersAttached = false;
   }
 
+  public consumeMouseDelta(): { dx: number; dy: number } {
+    const dx = this.mouseDeltaX;
+    const dy = this.mouseDeltaY;
+    this.mouseDeltaX = 0;
+    this.mouseDeltaY = 0;
+    return { dx, dy };
+  }
+
   private handleKeyDown = (e: KeyboardEvent) => {
     this.state.keys[e.code] = true;
     this.state.keys[e.key.toLowerCase()] = true;
@@ -75,6 +85,8 @@ export class InputManager {
   private handleMouseMove = (e: MouseEvent) => {
     this.state.mouse.x = e.clientX;
     this.state.mouse.y = e.clientY;
+    this.mouseDeltaX += e.movementX || 0;
+    this.mouseDeltaY += e.movementY || 0;
   };
 
   private handleMouseDown = (e: MouseEvent) => {
@@ -108,7 +120,7 @@ export class InputManager {
       case 'fire':
         return !!(k['Space'] || this.state.mouse.isDown);
       case 'dash':
-        return !!(k['ShiftLeft'] || k['ShiftRight'] || this.state.mouse.rightDown);
+        return !!(k['ShiftLeft'] || k['ShiftRight']);
       case 'special':
         return !!(k['KeyE'] || k['KeyQ'] || k['e'] || k['q']);
       default:

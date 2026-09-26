@@ -51,12 +51,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const stateRef = useRef({
-    health: 82,
-    energy: 64,
+    health: 100,
+    energy: 100,
     thermalStability: 100,
     ammo: 24,
     maxAmmo: 60,
-    score: 1250,
+    score: 0,
     wave: 1,
     hackProgress: 0,
     isTetherActive: false,
@@ -239,6 +239,11 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
     let animId: number;
     let shootCooldown = 0;
     let swapCooldown = 0;
+    let camYaw = 0;
+    let effectiveYaw = 0;
+    let invulnTimer = 0;
+    let timeSinceLastDamage = 0;
+    let regenSparkTimer = 0;
 
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -257,12 +262,97 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       const delta = clock.getDelta();
       const time = clock.getElapsedTime();
 
+      // Update Invulnerability & Health Regen Timers
+      invulnTimer = Math.max(0, invulnTimer - delta);
+      timeSinceLastDamage += delta;
+
+      // Active entity reference (Unit-7 or Titan)
+      const activeObj = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
+
+      // Dash grants temporary invulnerability
+      if (input.isActionPressed('dash') && s.activeChassis === 'UNIT7') {
+        invulnTimer = Math.max(invulnTimer, 0.22);
+      }
+
+      // Passive Nanite Shield Regeneration: +12 HP/sec after 3s without taking damage
+      if (timeSinceLastDamage > 3.0 && s.health < 100 && s.isRunning) {
+        s.health = Math.min(100, s.health + delta * 12);
+        regenSparkTimer -= delta;
+        if (regenSparkTimer <= 0) {
+          vfx.emitSparks(activeObj.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 2, 0x10b981, 2);
+          regenSparkTimer = 0.35;
+        }
+      }
+
+      // Visual i-frame flicker for Unit-7
+      if (invulnTimer > 0 && s.activeChassis === 'UNIT7') {
+        unit7.group.visible = Math.floor(time * 26) % 2 === 0;
+      } else if (s.activeChassis === 'UNIT7') {
+        unit7.group.visible = true;
+      }
+
       // A. UPDATE FACTORY SIRENS & VFX
       arena.updateSirens(time);
       vfx.update(delta);
 
-      // B. MOUSE AIM RAYCASTING
+      // B. CURSOR-DRIVEN CAMERA ORBIT & ROTATION
       const mouse = input.state.mouse;
+      const halfW = window.innerWidth * 0.5;
+      const halfH = window.innerHeight * 0.5;
+      const normX = (mouse.x - halfW) / (halfW || 1);
+      const normY = (mouse.y - halfH) / (halfH || 1);
+
+      // Consume physical mouse movements
+      const mouseDelta = input.consumeMouseDelta();
+      camYaw += mouseDelta.dx * 0.0035;
+
+      // Smooth edge-panning when aiming towards the screen edges
+      if (Math.abs(normX) > 0.35) {
+        const panDir = Math.sign(normX);
+        const panSpeed = (Math.abs(normX) - 0.35) / 0.65;
+        camYaw += panDir * panSpeed * 2.2 * delta;
+      }
+
+      // Dynamic Camera Orbit directly driven by cursor position across the screen
+      // Moving cursor right turns camera right; moving left turns camera left
+      const targetYaw = camYaw + normX * 0.82;
+      effectiveYaw = THREE.MathUtils.lerp(effectiveYaw, targetYaw, Math.min(1.0, delta * 10.0));
+
+      // Camera direction vectors in XZ plane
+      const fwdX = Math.sin(effectiveYaw);
+      const fwdZ = -Math.cos(effectiveYaw);
+      const rightX = Math.cos(effectiveYaw);
+      const rightZ = Math.sin(effectiveYaw);
+
+      // C. DYNAMIC THIRD-PERSON CAMERA POSITIONING
+      screenShake.update(delta * 2.2);
+
+      const isTitan = s.activeChassis === 'TITAN';
+      const camDist = isTitan ? 11.2 : 6.8;
+      const camHeight = (isTitan ? 6.2 : 3.8) - normY * 1.5;
+      const shoulderOffset = isTitan ? 1.4 : 0.9;
+
+      // Over-the-shoulder chase view relative to current camera yaw
+      const targetCamX = activeObj.position.x - fwdX * camDist - rightX * shoulderOffset;
+      const targetCamZ = activeObj.position.z - fwdZ * camDist - rightZ * shoulderOffset;
+      const targetCamY = activeObj.position.y + camHeight;
+
+      const lerpFactor = Math.min(1.0, delta * 9.0);
+      camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.025;
+      camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.025;
+      camera.position.z += (targetCamZ - camera.position.z) * lerpFactor;
+
+      // Look forward along camera angle with dynamic lookahead
+      const lookDist = isTitan ? 5.5 : 4.5;
+      const lookTarget = new THREE.Vector3(
+        activeObj.position.x + fwdX * lookDist + rightX * (normX * 1.6),
+        activeObj.position.y + (isTitan ? 3.0 : 1.6) - normY * 0.8,
+        activeObj.position.z + fwdZ * lookDist + rightZ * (normX * 1.6)
+      );
+      camera.lookAt(lookTarget);
+      camera.rotation.z = screenShake.angle * 0.08;
+
+      // D. MOUSE AIM RAYCASTING
       const ndcX = (mouse.x / window.innerWidth) * 2 - 1;
       const ndcY = -(mouse.y / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
@@ -270,9 +360,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       if (!hitPos) {
         hitPos = raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, 25);
       }
-
-      // Active entity reference (Unit-7 or Titan)
-      const activeObj = s.activeChassis === 'UNIT7' ? unit7.group : titan.group;
 
       if (hitPos) {
         const targetAngle = Math.atan2(
@@ -285,24 +372,26 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         }
       }
 
-      // C. MOVEMENT (WASD)
+      // E. CAMERA-RELATIVE MOVEMENT (WASD)
       const currentSpeed =
         s.activeChassis === 'TITAN'
           ? 4.8 * delta
           : (input.isActionPressed('dash') ? 14 : 8) * delta;
 
-      let moveX = 0;
-      let moveZ = 0;
-      if (input.isActionPressed('left')) moveX -= 1;
-      if (input.isActionPressed('right')) moveX += 1;
-      if (input.isActionPressed('up')) moveZ -= 1;
-      if (input.isActionPressed('down')) moveZ += 1;
+      let inputFwd = 0;
+      let inputRight = 0;
+      if (input.isActionPressed('up')) inputFwd += 1;
+      if (input.isActionPressed('down')) inputFwd -= 1;
+      if (input.isActionPressed('right')) inputRight += 1;
+      if (input.isActionPressed('left')) inputRight -= 1;
 
-      const isMoving = moveX !== 0 || moveZ !== 0;
+      const isMoving = inputFwd !== 0 || inputRight !== 0;
       if (isMoving) {
-        const length = Math.hypot(moveX, moveZ);
-        activeObj.position.x += (moveX / length) * currentSpeed;
-        activeObj.position.z += (moveZ / length) * currentSpeed;
+        const length = Math.hypot(inputFwd, inputRight);
+        const normFwd = inputFwd / length;
+        const normRight = inputRight / length;
+        activeObj.position.x += (fwdX * normFwd + rightX * normRight) * currentSpeed;
+        activeObj.position.z += (fwdZ * normFwd + rightZ * normRight) * currentSpeed;
       }
 
       if (s.activeChassis === 'UNIT7') {
@@ -327,47 +416,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       // Clamp within boundaries
       activeObj.position.x = Math.max(-36, Math.min(36, activeObj.position.x));
       activeObj.position.z = Math.max(-36, Math.min(36, activeObj.position.z));
-
-      // D. ROCK-SOLID CINEMATIC THIRD-PERSON CAMERA (FOLLOWS ROBOT MOVEMENT WITHOUT JITTER)
-      screenShake.update(delta * 2.2);
-
-      if (s.activeChassis === 'UNIT7') {
-        // Elevated over-the-shoulder chase view: 2.0 units left, 3.8 units up, 6.8 units behind
-        const targetCamX = activeObj.position.x - 2.0;
-        const targetCamY = activeObj.position.y + 3.8;
-        const targetCamZ = activeObj.position.z + 6.8;
-
-        const lerpFactor = Math.min(1.0, delta * 8.0);
-        camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.025;
-        camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.025;
-        camera.position.z += (targetCamZ - camera.position.z) * lerpFactor;
-
-        // Smoothly look forward across the foundry floor
-        const lookTarget = new THREE.Vector3(
-          activeObj.position.x + 0.6,
-          activeObj.position.y + 1.6,
-          activeObj.position.z - 4.5
-        );
-        camera.lookAt(lookTarget);
-      } else {
-        // Massive MK-IV Titan Camera
-        const targetCamX = activeObj.position.x - 2.6;
-        const targetCamY = activeObj.position.y + 6.2;
-        const targetCamZ = activeObj.position.z + 11.0;
-
-        const lerpFactor = Math.min(1.0, delta * 6.0);
-        camera.position.x += (targetCamX - camera.position.x) * lerpFactor + screenShake.offsetX * 0.025;
-        camera.position.y += (targetCamY - camera.position.y) * lerpFactor + screenShake.offsetY * 0.025;
-        camera.position.z += (targetCamZ - camera.position.z) * lerpFactor;
-
-        const lookTarget = new THREE.Vector3(
-          activeObj.position.x + 1.0,
-          activeObj.position.y + 3.5,
-          activeObj.position.z - 6.0
-        );
-        camera.lookAt(lookTarget);
-      }
-      camera.rotation.z = screenShake.angle * 0.1;
 
       // E. BODY-SWAPPING (EMBODY TITAN)
       if (swapCooldown > 0) swapCooldown -= delta;
@@ -501,16 +549,16 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           scoutPos.z += Math.cos(angle) * scout.speed * delta;
         }
 
-        // Scout shooting
-        scout.shootCooldown -= delta * 30;
+        // Scout shooting (balanced: 6-10s cooldown)
+        scout.shootCooldown -= delta * 20;
         if (scout.shootCooldown <= 0) {
-          scout.shootCooldown = 60 + Math.random() * 40;
+          scout.shootCooldown = 140 + Math.random() * 80;
           const eProj = new THREE.Mesh(projGeo, enemyProjMat);
           eProj.position.copy(scoutPos).add(new THREE.Vector3(0, 0.8, 0));
           const shootDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
           eProj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
           scene.add(eProj);
-          projectiles.push({ mesh: eProj, dir: shootDir, life: 2.0, isEnemy: true });
+          projectiles.push({ mesh: eProj, dir: shootDir, life: 2.5, isEnemy: true });
         }
       });
 
@@ -537,7 +585,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           boss.animateCrawl(time, false);
         }
 
-        // 1. Sweeping Red Laser Beam
+        // 1. Sweeping Red Laser Beam (Tunable balanced DPS: 7/sec)
         boss.updateLaserSweep(time);
         const toPlayer = new THREE.Vector3().subVectors(activeObj.position, bossPos);
         toPlayer.y = 0;
@@ -552,16 +600,18 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               sounds.playShieldDeflect();
               vfx.triggerShieldFlash();
               vfx.emitSparks(activeObj.position, 6, 0x00f0ff, 8);
-            } else if (!s.godMode) {
-              s.health = Math.max(0, s.health - delta * 32);
-              screenShake.addTrauma(delta * 0.4);
+            } else if (!s.godMode && invulnTimer <= 0) {
+              const laserDmg = (s.activeChassis === 'TITAN' ? 3.0 : 7.0) * delta;
+              s.health = Math.max(0, s.health - laserDmg);
+              timeSinceLastDamage = 0;
+              screenShake.addTrauma(delta * 0.15);
               vfx.triggerDamageFlash();
-              vfx.emitSparks(activeObj.position, 4, 0xff0044, 7);
+              vfx.emitSparks(activeObj.position, 2, 0xff0044, 4);
 
               laserDamageSoundCooldown -= delta;
               if (laserDamageSoundCooldown <= 0) {
                 sounds.playHit();
-                laserDamageSoundCooldown = 0.22;
+                laserDamageSoundCooldown = 0.35;
               }
               if (s.health <= 0) {
                 s.isRunning = false;
@@ -572,10 +622,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
           }
         }
 
-        // 2. Boss Plasma Missile Barrage
+        // 2. Boss Plasma Missile Barrage (Balanced 6 dmg per missile)
         bossShootCooldown -= delta;
         if (bossShootCooldown <= 0) {
-          bossShootCooldown = 3.2;
+          bossShootCooldown = 3.8;
           sounds.playShoot(320);
           [-1.4, 1.4].forEach((offset) => {
             const bProjMesh = new THREE.Mesh(bossProjGeo, bossProjMat);
@@ -590,14 +640,14 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
         // 3. Boss Ground Stomp Shockwave (When player is near)
         if (stompCooldown > 0) stompCooldown -= delta;
         if (distToPlayer < 9.0 && stompCooldown <= 0) {
-          stompCooldown = 5.5;
+          stompCooldown = 6.0;
           shockwaveActive = true;
           shockwaveRadius = 1.0;
           shockwaveMesh.position.copy(bossPos);
           shockwaveMesh.position.y = 0.1;
           shockwaveMat.opacity = 0.9;
           sounds.playExplosion('large');
-          screenShake.addTrauma(0.65);
+          screenShake.addTrauma(0.55);
           vfx.emitSparks(bossPos, 35, 0xff0044, 12);
           vfx.emitText(bossPos.clone().add(new THREE.Vector3(0, 3, 0)), 'STOMP SHOCKWAVE!', '#ff0044', 20, true);
         }
@@ -613,10 +663,21 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
               // Blocked by Titan shield
               sounds.playShieldDeflect();
               vfx.triggerShieldFlash();
-            } else if (!s.godMode) {
-              s.health = Math.max(0, s.health - delta * 45);
-              screenShake.addTrauma(0.25);
+            } else if (!s.godMode && invulnTimer <= 0) {
+              invulnTimer = 0.7; // Shockwave grants 0.7s i-frame
+              timeSinceLastDamage = 0;
+              const shockDmg = s.activeChassis === 'TITAN' ? 4 : 8;
+              s.health = Math.max(0, s.health - shockDmg);
+              sounds.playHit();
+              screenShake.addTrauma(0.3);
               vfx.triggerDamageFlash();
+              vfx.emitSparks(activeObj.position, 12, 0xff0044, 6);
+              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.5, 0)), `-${shockDmg}`, '#ef4444', 20, true);
+              if (s.health <= 0) {
+                s.isRunning = false;
+                onGameOver();
+                return;
+              }
             }
           }
 
@@ -630,7 +691,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
       // K. UPDATE PROJECTILES & COLLISIONS
       for (let i = projectiles.length - 1; i >= 0; i--) {
         const p = projectiles[i];
-        const projSpeed = p.isTitanShot ? 28 : (p.isBossShot ? 22 : 38);
+        const projSpeed = p.isTitanShot ? 28 : (p.isBossShot ? 20 : (p.isEnemy ? 24 : 38));
         p.mesh.position.addScaledVector(p.dir, projSpeed * delta);
         p.life -= delta;
 
@@ -713,14 +774,17 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = ({
 
           const targetHitDist = s.activeChassis === 'TITAN' ? 2.4 : 1.4;
           if (p.mesh.position.distanceTo(activeObj.position) < targetHitDist) {
-            if (!s.godMode) {
-              const dmg = p.isBossShot ? 18 : 10;
+            if (!s.godMode && invulnTimer <= 0) {
+              invulnTimer = 0.55; // 0.55s invulnerability frames on projectile hit
+              timeSinceLastDamage = 0;
+              let dmg = p.isBossShot ? 6 : 3; // Scout shot only 3 dmg, Boss shot 6 dmg
+              if (s.activeChassis === 'TITAN') dmg = Math.max(1, Math.round(dmg * 0.4)); // Titan armor absorbs 60%
               s.health = Math.max(0, s.health - dmg);
               sounds.playHit();
-              screenShake.addTrauma(0.35);
+              screenShake.addTrauma(0.25);
               vfx.triggerDamageFlash();
-              vfx.emitSparks(activeObj.position, 14, 0xff0033, 7);
-              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.5, 0)), p.isBossShot ? '-18' : '-10', '#ef4444', 18);
+              vfx.emitSparks(activeObj.position, 12, 0xff0033, 6);
+              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2.5, 0)), `-${dmg}`, '#ef4444', 18);
 
               if (s.health <= 0) {
                 s.isRunning = false;

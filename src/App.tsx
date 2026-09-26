@@ -17,12 +17,12 @@ export const App: React.FC = () => {
   });
 
   const [stats, setStats] = useState<OverlinkStats>({
-    health: 82,
-    energy: 64,
-    thermalStability: 72,
+    health: 100,
+    energy: 100,
+    thermalStability: 100,
     ammo: 24,
     maxAmmo: 60,
-    score: 1250,
+    score: 0,
     wave: 1,
     hackProgress: 0,
     isTetherActive: false,

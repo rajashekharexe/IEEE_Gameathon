@@ -230,13 +230,13 @@ export class FactoryArenaBuilder {
       const mainMesh = new THREE.Mesh(new THREE.BoxGeometry(cfg.w, cfg.h, cfg.d), bldgMat);
       bldgGroup.add(mainMesh);
 
-      // Lit windows rows on facades
-      const windowRows = Math.floor(cfg.h / 5);
-      for (let r = 1; r < windowRows - 1; r++) {
-        const winY = -cfg.h / 2 + r * 5;
-        const isFlickerRed = cfg.destroyed && r % 3 === 0;
+      // Lit window rows on facades (sleek high-tech cyber bands)
+      const windowRows = Math.floor(cfg.h / 14);
+      for (let r = 1; r < windowRows; r++) {
+        const winY = -cfg.h / 2 + r * 14;
+        const isFlickerRed = cfg.destroyed && r % 2 === 0;
         const winStrip = new THREE.Mesh(
-          new THREE.BoxGeometry(cfg.w * 0.75, 1.2, cfg.d + 0.1),
+          new THREE.BoxGeometry(cfg.w * 0.78, 1.8, cfg.d + 0.1),
           isFlickerRed ? brokenWindowMat : windowMat
         );
         winStrip.position.y = winY;
@@ -250,10 +250,10 @@ export class FactoryArenaBuilder {
         rubble.rotation.set(0.15, 0.2, -0.3);
         bldgGroup.add(rubble);
 
-        for (let reb = 0; reb < 5; reb++) {
+        for (let reb = 0; reb < 2; reb++) {
           const rebar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 5, 6), rebarMat);
-          rebar.position.set((reb - 2) * 1.5, cfg.h / 2 + 2.5, 0);
-          rebar.rotation.set((Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.7);
+          rebar.position.set((reb - 0.5) * 2.0, cfg.h / 2 + 2.5, 0);
+          rebar.rotation.set(0.1, 0, (reb === 0 ? -0.2 : 0.2));
           bldgGroup.add(rebar);
         }
       }

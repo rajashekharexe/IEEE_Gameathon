@@ -184,6 +184,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(1);
     renderer.shadowMap.enabled = false;
+    renderer.sortObjects = false;
     container.appendChild(renderer.domElement);
 
     // 4. ATMOSPHERIC LIGHTING (Bright, Crisp, Daylight / Twilight Luminous Illumination)
@@ -343,7 +344,6 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
     // Pre-allocated static vectors (0 GC allocations during render loop)
     const _vUp = new THREE.Vector3(0, 1, 0);
     const _vForward = new THREE.Vector3(0, 0, 1);
-    const _camAnchor = new THREE.Vector3(-6, 0, 6);
     const _cinematicCamPos = new THREE.Vector3(0, 14, 18);
     const _cinematicLook = new THREE.Vector3(0, 10, -32);
     const _targetLookPos = new THREE.Vector3();
@@ -358,15 +358,19 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
     const _bossShootDir = new THREE.Vector3();
     const _textPos = new THREE.Vector3();
 
-    // Free Fire / PUBG 3rd-Person Orbital Combat Camera State
-    let targetYaw = Math.PI; // Starts facing North towards enemy foundry
-    let targetPitch = 0.05; // Forward horizon eye-level view
-    let cameraYaw = Math.PI;
-    let cameraPitch = 0.05;
+    // Free Fire / PUBG 3rd-Person Orbital Combat Camera State (1:1 Direct Zero-Lag)
+    let cameraYaw = Math.PI; // Starts facing North towards enemy foundry
+    let cameraPitch = 0.05; // Forward horizon eye-level view
     let isPointerLocked = false;
     let frameCount = 0;
     let lastFpsTime = performance.now();
     let currentFps = 120;
+    let hadOverlayContent = false;
+    let lastReportedHp = 100;
+    let lastReportedScore = 0;
+    let lastReportedWave = 1;
+    let lastReportedBossHp = 1200;
+    let lastLoopTime = performance.now();
 
     const requestPointerLock = () => {
       if (document.pointerLockElement !== container && container) {
@@ -451,13 +455,14 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
     const loop = () => {
       if (!s.isRunning) return;
 
-      const delta = Math.min(clock.getDelta(), 0.05);
+      const now = performance.now();
+      const rawDelta = (now - lastLoopTime) / 1000;
+      lastLoopTime = now;
+      const delta = Math.min(Math.max(rawDelta, 0.001), 0.033);
       const time = clock.getElapsedTime();
 
       // A. UPDATE SCREEN SHAKE & VFX
       screenShake.update(delta * 2.5);
-      camera.position.x += screenShake.offsetX * 0.04;
-      camera.position.y += screenShake.offsetY * 0.04;
       vfx.update(delta);
       arena.updateSirens(time);
 
@@ -506,20 +511,15 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
         }
       }
 
-      // D. MOUSE AIM & CAMERA YAW/PITCH (Free Fire / PUBG 360° Surrounding Look)
+      // D. MOUSE AIM & CAMERA YAW/PITCH (Free Fire / PUBG 1:1 Direct Zero-Lag Aim)
       const mouseDelta = input.consumeMouseDelta();
       if ((mouseDelta.dx !== 0 || mouseDelta.dy !== 0) && !s.cinematicIntroActive) {
-        const mouseSens = 0.0024;
-        targetYaw -= mouseDelta.dx * mouseSens;
-        targetPitch += mouseDelta.dy * mouseSens * 0.65;
+        const mouseSens = 0.0022;
+        cameraYaw -= mouseDelta.dx * mouseSens;
+        cameraPitch += mouseDelta.dy * mouseSens * 0.65;
         // Clamp pitch: comfortably look up at boss/skyline and down at robots (never straight down at feet)
-        targetPitch = Math.max(-0.40, Math.min(0.35, targetPitch));
+        cameraPitch = Math.max(-0.42, Math.min(0.36, cameraPitch));
       }
-
-      // Snappy Free Fire / PUBG smoothing: zero input lag while filtering mouse USB jitter
-      const lookSmoothing = 1 - Math.exp(-42 * Math.min(delta, 0.05));
-      cameraYaw += (targetYaw - cameraYaw) * lookSmoothing;
-      cameraPitch += (targetPitch - cameraPitch) * lookSmoothing;
 
       const cosPitch = Math.cos(cameraPitch);
       const sinPitch = Math.sin(cameraPitch);
@@ -598,19 +598,20 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
 
       // F. HIGH-PRECISION COMBAT CHASE CAMERA (Free Fire / PUBG Over-The-Shoulder View)
       if (!s.cinematicIntroActive) {
-        const camDist = 4.6;
+        const camDist = 4.5;
         const camHeight = 1.95;
         const shoulderOffset = 0.35;
 
-        // Smooth camera anchor follows player position smoothly (eliminates micro-stutter when walking/stopping)
-        const anchorRate = 1 - Math.exp(-24 * Math.min(delta, 0.05));
-        _camAnchor.lerp(activeObj.position, anchorRate);
-
         camera.position.set(
-          _camAnchor.x - forwardX * camDist * cosPitch + rightX * shoulderOffset,
-          _camAnchor.y + camHeight + camDist * sinPitch,
-          _camAnchor.z - forwardZ * camDist * cosPitch + rightZ * shoulderOffset
+          activeObj.position.x - forwardX * camDist * cosPitch + rightX * shoulderOffset,
+          activeObj.position.y + camHeight + camDist * sinPitch,
+          activeObj.position.z - forwardZ * camDist * cosPitch + rightZ * shoulderOffset
         );
+
+        if (screenShake.offsetX !== 0 || screenShake.offsetY !== 0) {
+          camera.position.x += screenShake.offsetX * 0.04;
+          camera.position.y += screenShake.offsetY * 0.04;
+        }
 
         const lookAheadDist = 35.0;
         _targetLookPos.set(
@@ -1176,30 +1177,36 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
         });
       }
 
-      // L. UPDATE REACT HUD STATS (Throttled for Ultra 90-120+ FPS Performance)
+      // L. UPDATE REACT HUD STATS (Smart Event-Driven Throttling for Ultra 90-120+ FPS)
       hudThrottleTimer += delta;
       const isCriticalHudUpdate =
-        s.health <= 0 ||
-        s.bossHp <= 0 ||
+        s.health !== lastReportedHp ||
+        s.score !== lastReportedScore ||
+        s.wave !== lastReportedWave ||
+        s.bossHp !== lastReportedBossHp ||
         s.cinematicIntroActive ||
         s.hackingAnimState !== prevHackingState ||
         s.activeBanner !== prevBanner;
 
       // Real-time FPS Calculation (350ms sample window)
       frameCount++;
-      const nowPerf = performance.now();
-      if (nowPerf - lastFpsTime >= 350) {
-        currentFps = Math.round((frameCount * 1000) / (nowPerf - lastFpsTime));
+      const nowPerfTime = performance.now();
+      if (nowPerfTime - lastFpsTime >= 350) {
+        currentFps = Math.round((frameCount * 1000) / (nowPerfTime - lastFpsTime));
         frameCount = 0;
-        lastFpsTime = nowPerf;
+        lastFpsTime = nowPerfTime;
         s.fps = currentFps;
         s.isPointerLocked = isPointerLocked;
       }
 
-      if (hudThrottleTimer >= 0.10 || isCriticalHudUpdate) {
+      if (hudThrottleTimer >= 0.20 || isCriticalHudUpdate) {
         hudThrottleTimer = 0;
         prevHackingState = s.hackingAnimState;
         prevBanner = s.activeBanner;
+        lastReportedHp = s.health;
+        lastReportedScore = s.score;
+        lastReportedWave = s.wave;
+        lastReportedBossHp = s.bossHp;
 
         onUpdateStats({
           health: s.health,
@@ -1250,13 +1257,16 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
       // Render 3D Scene
       renderer.render(scene, camera);
 
-      // Render 2D Floating Combat Text (Only clears and draws when damage texts exist)
+      // Render 2D Floating Combat Text (Only clears and draws when damage texts or flashes exist)
       if (overlayCtx && overlayCanvas) {
-        if (vfx.floatingTexts.length > 0 || vfx.damageFlash > 0.01 || vfx.shieldFlash > 0.01) {
+        const hasOverlayEffects = vfx.floatingTexts.length > 0 || vfx.damageFlash > 0.01 || vfx.shieldFlash > 0.01;
+        if (hasOverlayEffects) {
           overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
           vfx.renderOverlay(overlayCtx, camera, overlayCanvas.width, overlayCanvas.height, []);
-        } else {
+          hadOverlayContent = true;
+        } else if (hadOverlayContent) {
           overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          hadOverlayContent = false;
         }
       }
 

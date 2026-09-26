@@ -45,6 +45,7 @@ export class VFXSystem {
 
   private posArray: Float32Array;
   private colArray: Float32Array;
+  private hadSparks = false;
 
   // Screen Vignette Flash States (0 to 1)
   public damageFlash = 0;
@@ -154,29 +155,32 @@ export class VFXSystem {
       }
     }
 
-    // Update Three.js buffer
-    const posAttr = this.pointsGeo.attributes.position as THREE.BufferAttribute;
-    const colAttr = this.pointsGeo.attributes.color as THREE.BufferAttribute;
+    // Update Three.js buffer only when sparks exist or were just cleared
+    if (this.sparks.length > 0 || this.hadSparks) {
+      const posAttr = this.pointsGeo.attributes.position as THREE.BufferAttribute;
+      const colAttr = this.pointsGeo.attributes.color as THREE.BufferAttribute;
 
-    for (let i = 0; i < this.maxParticles; i++) {
-      if (i < this.sparks.length) {
-        const s = this.sparks[i];
-        this.posArray[i * 3] = s.pos.x;
-        this.posArray[i * 3 + 1] = s.pos.y;
-        this.posArray[i * 3 + 2] = s.pos.z;
+      for (let i = 0; i < this.maxParticles; i++) {
+        if (i < this.sparks.length) {
+          const s = this.sparks[i];
+          this.posArray[i * 3] = s.pos.x;
+          this.posArray[i * 3 + 1] = s.pos.y;
+          this.posArray[i * 3 + 2] = s.pos.z;
 
-        const alpha = Math.max(0, s.life / s.maxLife);
-        this.colArray[i * 3] = s.color.r * alpha;
-        this.colArray[i * 3 + 1] = s.color.g * alpha;
-        this.colArray[i * 3 + 2] = s.color.b * alpha;
-      } else {
-        this.posArray[i * 3] = 99999;
-        this.posArray[i * 3 + 1] = 99999;
-        this.posArray[i * 3 + 2] = 99999;
+          const alpha = Math.max(0, s.life / s.maxLife);
+          this.colArray[i * 3] = s.color.r * alpha;
+          this.colArray[i * 3 + 1] = s.color.g * alpha;
+          this.colArray[i * 3 + 2] = s.color.b * alpha;
+        } else {
+          this.posArray[i * 3] = 99999;
+          this.posArray[i * 3 + 1] = 99999;
+          this.posArray[i * 3 + 2] = 99999;
+        }
       }
+      posAttr.needsUpdate = true;
+      colAttr.needsUpdate = true;
+      this.hadSparks = this.sparks.length > 0;
     }
-    posAttr.needsUpdate = true;
-    colAttr.needsUpdate = true;
 
     // 2. Update Floating Texts
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {

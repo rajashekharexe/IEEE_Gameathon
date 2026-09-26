@@ -15,7 +15,7 @@ interface OverlinkHUDProps {
   onOpenJudgeModal?: () => void;
 }
 
-export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpenJudgeModal }) => {
+export const OverlinkHUD: React.FC<OverlinkHUDProps> = React.memo(({ stats, godMode, onOpenJudgeModal }) => {
   return (
     <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between z-20 text-white font-mono select-none">
       {/* 1. TOP STATUS BAR */}
@@ -258,4 +258,4 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
       </div>
     </div>
   );
-};
+});

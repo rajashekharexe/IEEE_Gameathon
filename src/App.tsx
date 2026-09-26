@@ -126,8 +126,10 @@ export const App: React.FC = () => {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
-      {/* Scanline CRT overlay */}
-      <div className="absolute inset-0 scanlines z-30 pointer-events-none opacity-25" />
+      {/* Scanline CRT overlay (only on menus) */}
+      {gameState !== 'PLAYING' && (
+        <div className="absolute inset-0 scanlines z-30 pointer-events-none opacity-25" />
+      )}
 
       {/* 3D Game World */}
       {gameState === 'PLAYING' && (

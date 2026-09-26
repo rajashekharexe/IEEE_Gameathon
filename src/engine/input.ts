@@ -24,6 +24,9 @@ export class InputManager {
 
   private mouseDeltaX = 0;
   private mouseDeltaY = 0;
+  private lastClientX = 0;
+  private lastClientY = 0;
+  private hasLastClient = false;
   private listenersAttached = false;
   private onGodModeToggle?: (enabled: boolean) => void;
 
@@ -40,6 +43,8 @@ export class InputManager {
     window.addEventListener('mousedown', this.handleMouseDown);
     window.addEventListener('mouseup', this.handleMouseUp);
     window.addEventListener('contextmenu', this.preventContextMenu);
+    document.addEventListener('pointerlockchange', this.handlePointerLockChange);
+    window.addEventListener('mouseleave', this.handleMouseLeave);
 
     this.listenersAttached = true;
   }
@@ -51,8 +56,18 @@ export class InputManager {
     window.removeEventListener('mousedown', this.handleMouseDown);
     window.removeEventListener('mouseup', this.handleMouseUp);
     window.removeEventListener('contextmenu', this.preventContextMenu);
+    document.removeEventListener('pointerlockchange', this.handlePointerLockChange);
+    window.removeEventListener('mouseleave', this.handleMouseLeave);
     this.listenersAttached = false;
   }
+
+  private handlePointerLockChange = () => {
+    this.hasLastClient = false;
+  };
+
+  private handleMouseLeave = () => {
+    this.hasLastClient = false;
+  };
 
   public consumeMouseDelta(): { dx: number; dy: number } {
     const dx = this.mouseDeltaX;
@@ -85,8 +100,25 @@ export class InputManager {
   private handleMouseMove = (e: MouseEvent) => {
     this.state.mouse.x = e.clientX;
     this.state.mouse.y = e.clientY;
-    this.mouseDeltaX += e.movementX || 0;
-    this.mouseDeltaY += e.movementY || 0;
+
+    let mx = e.movementX;
+    let my = e.movementY;
+
+    // Fallback: If movementX/Y is zero or not supported (e.g. pointer not yet locked),
+    // calculate delta from client coordinates so mouse look works even without clicking to lock!
+    if ((mx === undefined || (mx === 0 && my === 0)) && !document.pointerLockElement) {
+      if (this.hasLastClient) {
+        mx = e.clientX - this.lastClientX;
+        my = e.clientY - this.lastClientY;
+      }
+    }
+
+    this.lastClientX = e.clientX;
+    this.lastClientY = e.clientY;
+    this.hasLastClient = true;
+
+    this.mouseDeltaX += mx || 0;
+    this.mouseDeltaY += my || 0;
   };
 
   private handleMouseDown = (e: MouseEvent) => {

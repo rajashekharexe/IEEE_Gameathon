@@ -23,7 +23,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
         {/* TOP LEFT: ❤️ HP & ⚡ EMP */}
         <div className="flex flex-col gap-2 min-w-[220px]">
           {/* Health Bar */}
-          <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl shadow-xl">
+          <div className="bg-slate-950/95 border border-slate-800 p-2.5 rounded-xl shadow-xl">
             <div className="flex justify-between items-center text-xs mb-1 font-bold">
               <span className="flex items-center gap-1.5 text-rose-400">
                 <Heart className="w-3.5 h-3.5 fill-rose-500" />
@@ -46,7 +46,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
           </div>
 
           {/* EMP Energy Bar */}
-          <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800 p-2.5 rounded-xl shadow-xl">
+          <div className="bg-slate-950/95 border border-slate-800 p-2.5 rounded-xl shadow-xl">
             <div className="flex justify-between items-center text-xs mb-1 font-bold">
               <span className="flex items-center gap-1.5 text-cyan-400">
                 <Zap className="w-3.5 h-3.5 fill-cyan-400" />
@@ -72,7 +72,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
         {/* TOP CENTER: OBJECTIVE TRACKER OR BOSS HEALTH */}
         <div className="flex flex-col items-center min-w-[340px] max-w-md">
           {stats.bossActive ? (
-            <div className="w-full bg-slate-950/90 backdrop-blur-md border border-rose-500/60 p-3 rounded-2xl shadow-2xl animate-in fade-in">
+            <div className="w-full bg-slate-950/95 border border-rose-500/60 p-3 rounded-2xl shadow-2xl animate-in fade-in">
               <div className="flex justify-between items-center text-xs font-black tracking-wider mb-1 text-rose-400">
                 <span className="flex items-center gap-1.5 animate-pulse">
                   <Skull className="w-4 h-4 text-rose-500" />
@@ -99,7 +99,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
               </div>
             </div>
           ) : (
-            <div className="bg-slate-950/85 backdrop-blur-md border border-cyan-500/40 px-6 py-2.5 rounded-2xl shadow-2xl text-center">
+            <div className="bg-slate-950/95 border border-cyan-500/40 px-6 py-2.5 rounded-2xl shadow-2xl text-center">
               <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest">
                 CURRENT DIRECTIVE
               </div>
@@ -131,7 +131,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
             </span>
           </div>
 
-          <div className="bg-slate-950/85 backdrop-blur-md border border-slate-800 px-4 py-2 rounded-xl shadow-xl text-right">
+          <div className="bg-slate-950/95 border border-slate-800 px-4 py-2 rounded-xl shadow-xl text-right">
             <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">
               SCORE
             </div>
@@ -140,7 +140,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
             </div>
           </div>
 
-          <div className="bg-slate-950/85 backdrop-blur-md border border-cyan-500/40 px-3.5 py-1.5 rounded-lg text-right shadow-lg">
+          <div className="bg-slate-950/95 border border-cyan-500/40 px-3.5 py-1.5 rounded-lg text-right shadow-lg">
             <div className="text-[10px] text-slate-400 uppercase font-bold">LEVEL {stats.wave}</div>
             <div className="text-xs font-black text-amber-300 tracking-wider">
               {stats.levelTitle}
@@ -215,7 +215,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode, onOpen
 
         {/* Requirement 9: CINEMATIC CORE-X BOSS INTRO MODAL */}
         {stats.cinematicIntroActive && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-in fade-in duration-500">
+          <div className="fixed inset-0 bg-slate-950/90 flex flex-col items-center justify-center z-50 animate-in fade-in duration-500">
             <div className="bg-rose-950/90 border-2 border-rose-500 rounded-2xl p-8 max-w-md w-full text-center shadow-[0_0_60px_rgba(244,63,94,0.9)] space-y-4">
               <div className="flex items-center justify-center gap-2 text-rose-400 text-sm font-black tracking-widest animate-pulse">
                 <AlertTriangle className="w-5 h-5 text-rose-500" />

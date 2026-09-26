@@ -288,9 +288,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
         new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3 })
       );
       bg.add(droneMesh);
-      const spot = new THREE.PointLight(0xff0044, 2.5, 25);
-      spot.position.y = -1;
-      bg.add(spot);
+      const beacon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xff0044 })
+      );
+      beacon.position.y = -0.6;
+      bg.add(beacon);
       scene.add(bg);
       bgDrones.push(bg);
     });
@@ -337,30 +340,42 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
     let prevBanner: MissionBannerData | null = null;
     let activeHackingTarget: EnforcerRobotEntity | ActiveScout | null = null;
 
-    // Pre-allocated static vectors (0 GC heap allocations during 60fps render loop)
+    // Pre-allocated static vectors (0 GC allocations during render loop)
+    const _vUp = new THREE.Vector3(0, 1, 0);
+    const _vForward = new THREE.Vector3(0, 0, 1);
+    const _camAnchor = new THREE.Vector3(-6, 0, 6);
     const _cinematicCamPos = new THREE.Vector3(0, 14, 18);
     const _cinematicLook = new THREE.Vector3(0, 10, -32);
-    const _targetCamPos = new THREE.Vector3();
     const _targetLookPos = new THREE.Vector3();
     const _followOffset = new THREE.Vector3(-4, 0, 2);
     const _followGoal = new THREE.Vector3();
     const _sprintOffset = new THREE.Vector3(0, 0.2, 0);
-    const _tempVec3 = new THREE.Vector3();
+    const _tempA = new THREE.Vector3();
+    const _tempB = new THREE.Vector3();
+    const _tempC = new THREE.Vector3();
+    const _shootDir = new THREE.Vector3();
+    const _dirToPlayer = new THREE.Vector3();
+    const _bossShootDir = new THREE.Vector3();
+    const _textPos = new THREE.Vector3();
 
     // Free Fire / PUBG 3rd-Person Orbital Combat Camera State
-    let cameraYaw = Math.PI; // Starts facing North towards enemy foundry
-    let cameraPitch = 0.05; // Forward horizon eye-level view
+    let targetYaw = Math.PI; // Starts facing North towards enemy foundry
+    let targetPitch = 0.05; // Forward horizon eye-level view
+    let cameraYaw = Math.PI;
+    let cameraPitch = 0.05;
     let isPointerLocked = false;
     let frameCount = 0;
     let lastFpsTime = performance.now();
     let currentFps = 120;
 
-    const handleContainerClick = () => {
+    const requestPointerLock = () => {
       if (document.pointerLockElement !== container && container) {
         container.requestPointerLock?.();
       }
     };
-    container.addEventListener('click', handleContainerClick);
+    container.addEventListener('click', requestPointerLock);
+    container.addEventListener('mousedown', requestPointerLock);
+    window.addEventListener('mousedown', requestPointerLock);
 
     const handlePointerLockChange = () => {
       isPointerLocked = document.pointerLockElement === container;
@@ -494,26 +509,41 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
       // D. MOUSE AIM & CAMERA YAW/PITCH (Free Fire / PUBG 360° Surrounding Look)
       const mouseDelta = input.consumeMouseDelta();
       if ((mouseDelta.dx !== 0 || mouseDelta.dy !== 0) && !s.cinematicIntroActive) {
-        const mouseSens = 0.0028;
-        cameraYaw -= mouseDelta.dx * mouseSens;
-        cameraPitch += mouseDelta.dy * mouseSens * 0.75;
+        const mouseSens = 0.0024;
+        targetYaw -= mouseDelta.dx * mouseSens;
+        targetPitch += mouseDelta.dy * mouseSens * 0.65;
         // Clamp pitch: comfortably look up at boss/skyline and down at robots (never straight down at feet)
-        cameraPitch = Math.max(-0.25, Math.min(0.30, cameraPitch));
+        targetPitch = Math.max(-0.40, Math.min(0.35, targetPitch));
       }
 
-      // Forward and Right vectors derived from cameraYaw
-      const forwardX = Math.sin(cameraYaw);
-      const forwardZ = Math.cos(cameraYaw);
-      const rightX = -forwardZ;
-      const rightZ = forwardX;
+      // Snappy Free Fire / PUBG smoothing: zero input lag while filtering mouse USB jitter
+      const lookSmoothing = 1 - Math.exp(-42 * Math.min(delta, 0.05));
+      cameraYaw += (targetYaw - cameraYaw) * lookSmoothing;
+      cameraPitch += (targetPitch - cameraPitch) * lookSmoothing;
+
+      const cosPitch = Math.cos(cameraPitch);
+      const sinPitch = Math.sin(cameraPitch);
+      const sinYaw = Math.sin(cameraYaw);
+      const cosYaw = Math.cos(cameraYaw);
+
+      // Horizontal ground movement directions (for WASD)
+      const forwardX = sinYaw;
+      const forwardZ = cosYaw;
+      const rightX = -cosYaw;
+      const rightZ = sinYaw;
+
+      // 3D forward unit vector (where camera and sniper rifle aim)
+      const fwdX = sinYaw * cosPitch;
+      const fwdY = -sinPitch;
+      const fwdZ = cosYaw * cosPitch;
 
       // E. WASD MOVEMENT & SPRINT (Camera-Relative, Free Fire / PUBG style)
       const isSprinting = input.isActionPressed('dash') && s.energy > 5;
       if (isSprinting) {
         s.energy = Math.max(0, s.energy - 15 * delta);
         // Sprint particles behind boots
-        _tempVec3.copy(activeObj.position).add(_sprintOffset);
-        vfx.emitSparks(_tempVec3, 1, 0x00f0ff, 3);
+        _tempA.copy(activeObj.position).add(_sprintOffset);
+        vfx.emitSparks(_tempA, 1, 0x00f0ff, 3);
       }
 
       const currentSpeed =
@@ -568,26 +598,25 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
 
       // F. HIGH-PRECISION COMBAT CHASE CAMERA (Free Fire / PUBG Over-The-Shoulder View)
       if (!s.cinematicIntroActive) {
-        const cosPitch = Math.cos(cameraPitch);
-        const sinPitch = Math.sin(cameraPitch);
+        const camDist = 4.6;
+        const camHeight = 1.95;
+        const shoulderOffset = 0.35;
 
-        const camDist = 4.8;
-        const camHeight = 2.1;
-        const shoulderOffset = 0.32;
+        // Smooth camera anchor follows player position smoothly (eliminates micro-stutter when walking/stopping)
+        const anchorRate = 1 - Math.exp(-24 * Math.min(delta, 0.05));
+        _camAnchor.lerp(activeObj.position, anchorRate);
 
-        _targetCamPos.set(
-          activeObj.position.x - forwardX * camDist * cosPitch + rightX * shoulderOffset,
-          activeObj.position.y + camHeight + camDist * sinPitch,
-          activeObj.position.z - forwardZ * camDist * cosPitch + rightZ * shoulderOffset
+        camera.position.set(
+          _camAnchor.x - forwardX * camDist * cosPitch + rightX * shoulderOffset,
+          _camAnchor.y + camHeight + camDist * sinPitch,
+          _camAnchor.z - forwardZ * camDist * cosPitch + rightZ * shoulderOffset
         );
-        const camLerp = 1 - Math.exp(-14 * Math.min(delta, 0.05));
-        camera.position.lerp(_targetCamPos, camLerp);
 
-        const lookDist = 25.0;
+        const lookAheadDist = 35.0;
         _targetLookPos.set(
-          activeObj.position.x + forwardX * lookDist + rightX * shoulderOffset,
-          activeObj.position.y + 1.4 - sinPitch * lookDist,
-          activeObj.position.z + forwardZ * lookDist + rightZ * shoulderOffset
+          camera.position.x + fwdX * lookAheadDist,
+          camera.position.y + fwdY * lookAheadDist,
+          camera.position.z + fwdZ * lookAheadDist
         );
         camera.lookAt(_targetLookPos);
 
@@ -661,7 +690,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
             s.score += 500;
             sounds.playPowerup();
             vfx.emitSparks((activeHackingTarget as any).group.position, 35, 0x10b981, 10, true);
-            vfx.emitText((activeHackingTarget as any).group.position.clone().add(new THREE.Vector3(0, 3, 0)), 'HACKED! ALLIED DEFENDER', '#10b981', 22, true);
+            _textPos.copy((activeHackingTarget as any).group.position);
+            _textPos.y += 3;
+            vfx.emitText(_textPos, 'HACKED! ALLIED DEFENDER', '#10b981', 22, true);
             triggerBanner('SUCCESS', 'NEURAL OVERLINK SUCCESSFUL!', 'ROBOT CONVERTED INTO ALLIED DEFENDER (08s)');
             activeHackingTarget = null;
           }
@@ -671,7 +702,7 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
       // H. SHOOTING (KSR-29 AP Sniper Rifle)
       if (shootCooldown > 0) shootCooldown -= delta;
       if (input.isActionPressed('fire') && shootCooldown <= 0 && !s.cinematicIntroActive) {
-        shootCooldown = 0.35; // Fast tactical sniper cadence
+        shootCooldown = 0.32; // Fast tactical sniper cadence
         unit7.triggerRecoil();
         sounds.playSniperShot();
         screenShake.addTrauma(0.18);
@@ -679,17 +710,17 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
         // Kinetic Muzzle Flash
         vfx.emitSparks(unit7.weaponMuzzle, 12, 0x10b981, 8);
 
-        // Projectile towards target look point in center crosshair
-        const shootDir = _targetLookPos.clone().sub(unit7.weaponMuzzle).normalize();
+        // Projectile fires exactly along camera forward vector (center crosshair pinpoint)
+        _shootDir.set(fwdX, fwdY, fwdZ);
 
         const pMesh = new THREE.Mesh(sniperProjGeo, sniperProjMat);
         pMesh.position.copy(unit7.weaponMuzzle);
-        pMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), shootDir);
+        pMesh.quaternion.setFromUnitVectors(_vForward, _shootDir);
         scene.add(pMesh);
 
         projectiles.push({
           mesh: pMesh,
-          dir: shootDir,
+          dir: _shootDir.clone(),
           life: 2.2,
           isSniperShot: true,
         });
@@ -704,8 +735,8 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
         if (sc.isHacked) {
           // HACKED ALLY SCOUT: Follow player & attack rogue enemies!
           sc.hackTimer -= delta;
-          const targetFollow = activeObj.position.clone().add(new THREE.Vector3(3, 2, 3));
-          scPos.lerp(targetFollow, 0.05);
+          _tempA.set(activeObj.position.x + 3, activeObj.position.y + 2, activeObj.position.z + 3);
+          scPos.lerp(_tempA, 0.05);
           sc.animateBob(time);
 
           // Find rogue enemy to attack
@@ -714,12 +745,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
             const rogueEnf = enforcers.find((e) => e.isAlive && !e.isHacked);
             if (rogueEnf) {
               sc.shootCooldown = 0.8;
-              const aDir = rogueEnf.group.position.clone().sub(scPos).normalize();
+              _tempB.copy(rogueEnf.group.position).sub(scPos).normalize();
               const aMesh = new THREE.Mesh(projGeo, allyProjMat);
               aMesh.position.copy(scPos);
-              aMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), aDir);
+              aMesh.quaternion.setFromUnitVectors(_vForward, _tempB);
               scene.add(aMesh);
-              projectiles.push({ mesh: aMesh, dir: aDir, life: 1.8, isAllyShot: true });
+              projectiles.push({ mesh: aMesh, dir: _tempB.clone(), life: 1.8, isAllyShot: true });
             }
           }
 
@@ -733,13 +764,13 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
           // ROGUE SCOUT: Patrol or Chase & Attack
           if (distToPlayer < 36 && !s.cinematicIntroActive) {
             // Chase player & maintain 9m distance
-            const dirToPlayer = activeObj.position.clone().sub(scPos).normalize();
+            _dirToPlayer.copy(activeObj.position).sub(scPos).normalize();
             if (distToPlayer > 9.5) {
-              scPos.x += dirToPlayer.x * 6.2 * delta;
-              scPos.z += dirToPlayer.z * 6.2 * delta;
+              scPos.x += _dirToPlayer.x * 6.2 * delta;
+              scPos.z += _dirToPlayer.z * 6.2 * delta;
             } else if (distToPlayer < 7.0) {
-              scPos.x -= dirToPlayer.x * 4.5 * delta;
-              scPos.z -= dirToPlayer.z * 4.5 * delta;
+              scPos.x -= _dirToPlayer.x * 4.5 * delta;
+              scPos.z -= _dirToPlayer.z * 4.5 * delta;
             }
 
             // Shoot red plasma bolts
@@ -749,9 +780,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               sounds.playShoot(520);
               const pMesh = new THREE.Mesh(projGeo, enemyProjMat);
               pMesh.position.copy(scPos);
-              pMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirToPlayer);
+              pMesh.quaternion.setFromUnitVectors(_vForward, _dirToPlayer);
               scene.add(pMesh);
-              projectiles.push({ mesh: pMesh, dir: dirToPlayer, life: 2.0, isEnemy: true });
+              projectiles.push({ mesh: pMesh, dir: _dirToPlayer.clone(), life: 2.0, isEnemy: true });
             }
           } else {
             // Waypoint patrol circle
@@ -783,14 +814,16 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
             enf.shootCooldown = 0.9;
             const target = s.bossActive ? boss.group.position : enforcers.find((e) => e.isAlive && !e.isHacked)?.group.position;
             if (target) {
-              const aDir = target.clone().sub(enfPos).normalize();
-              aDir.y = 0;
-              enf.group.rotation.y = Math.atan2(aDir.x, aDir.z);
+              _tempB.copy(target).sub(enfPos).normalize();
+              _tempB.y = 0;
+              enf.group.rotation.y = Math.atan2(_tempB.x, _tempB.z);
               const aMesh = new THREE.Mesh(projGeo, allyProjMat);
-              aMesh.position.copy(enfPos).add(new THREE.Vector3(0, 1.5, 0));
-              aMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), aDir);
+              _tempC.copy(enfPos);
+              _tempC.y += 1.5;
+              aMesh.position.copy(_tempC);
+              aMesh.quaternion.setFromUnitVectors(_vForward, _tempB);
               scene.add(aMesh);
-              projectiles.push({ mesh: aMesh, dir: aDir, life: 2.0, isAllyShot: true });
+              projectiles.push({ mesh: aMesh, dir: _tempB.clone(), life: 2.0, isAllyShot: true });
             }
           }
 
@@ -802,20 +835,20 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
         } else {
           // ROGUE ENFORCER: Walk, Strafe, Aim & Shoot
           if (distToPlayer < 40 && !s.cinematicIntroActive) {
-            const dirToPlayer = activeObj.position.clone().sub(enfPos).normalize();
-            dirToPlayer.y = 0;
-            enf.group.rotation.y = Math.atan2(dirToPlayer.x, dirToPlayer.z);
+            _dirToPlayer.copy(activeObj.position).sub(enfPos).normalize();
+            _dirToPlayer.y = 0;
+            enf.group.rotation.y = Math.atan2(_dirToPlayer.x, _dirToPlayer.z);
 
             // Maintain combat distance (12m for Attack, 6m for Shield)
             const preferredDist = enf.type === 'SHIELD' ? 6.5 : 12.0;
             if (distToPlayer > preferredDist + 1.5) {
-              enfPos.x += dirToPlayer.x * enf.speed * delta;
-              enfPos.z += dirToPlayer.z * enf.speed * delta;
+              enfPos.x += _dirToPlayer.x * enf.speed * delta;
+              enfPos.z += _dirToPlayer.z * enf.speed * delta;
               enf.animateWalk(time, true);
             } else {
               // Strafe sideways
-              const strafeX = -dirToPlayer.z * Math.sin(time * 2) * 2.5 * delta;
-              const strafeZ = dirToPlayer.x * Math.sin(time * 2) * 2.5 * delta;
+              const strafeX = -_dirToPlayer.z * Math.sin(time * 2) * 2.5 * delta;
+              const strafeZ = _dirToPlayer.x * Math.sin(time * 2) * 2.5 * delta;
               enfPos.x += strafeX;
               enfPos.z += strafeZ;
               enf.animateWalk(time, true);
@@ -827,10 +860,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               enf.shootCooldown = enf.type === 'SHIELD' ? 2.2 : 1.6;
               sounds.playShoot(380);
               const pMesh = new THREE.Mesh(projGeo, enemyProjMat);
-              pMesh.position.copy(enfPos).add(new THREE.Vector3(0, 1.5, 0));
-              pMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirToPlayer);
+              _tempC.copy(enfPos);
+              _tempC.y += 1.5;
+              pMesh.position.copy(_tempC);
+              pMesh.quaternion.setFromUnitVectors(_vForward, _dirToPlayer);
               scene.add(pMesh);
-              projectiles.push({ mesh: pMesh, dir: dirToPlayer, life: 2.2, isEnemy: true });
+              projectiles.push({ mesh: pMesh, dir: _dirToPlayer.clone(), life: 2.2, isEnemy: true });
             }
           } else {
             enf.animateWalk(time, false);
@@ -864,9 +899,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
         }
 
         // Aim towards player
-        const bDir = activeObj.position.clone().sub(boss.group.position).normalize();
-        bDir.y = 0;
-        boss.group.rotation.y = Math.atan2(bDir.x, bDir.z);
+        _bossShootDir.copy(activeObj.position).sub(boss.group.position).normalize();
+        _bossShootDir.y = 0;
+        boss.group.rotation.y = Math.atan2(_bossShootDir.x, _bossShootDir.z);
 
         // Boss Artillery Shooting
         boss.shootCooldown -= delta;
@@ -877,9 +912,10 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
           // Twin artillery cannons firing
           [-4, 4].forEach((xSide) => {
             const bProj = new THREE.Mesh(bossProjGeo, bossProjMat);
-            bProj.position.copy(boss.group.position).add(new THREE.Vector3(xSide, 8, 4));
+            _tempA.set(boss.group.position.x + xSide, boss.group.position.y + 8, boss.group.position.z + 4);
+            bProj.position.copy(_tempA);
             scene.add(bProj);
-            projectiles.push({ mesh: bProj, dir: bDir.clone(), life: 3.0, isEnemy: true, isBossShot: true });
+            projectiles.push({ mesh: bProj, dir: _bossShootDir.clone(), life: 3.0, isEnemy: true, isBossShot: true });
           });
         }
       }
@@ -927,15 +963,17 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
             if (p.mesh.position.distanceTo(enf.group.position) < 2.5) {
               // Check frontal energy shield on Shield droids
               if (enf.hasShield) {
-                const toBullet = p.mesh.position.clone().sub(enf.group.position).normalize();
-                const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), enf.group.rotation.y);
-                const dot = toBullet.dot(forward);
+                _tempA.copy(p.mesh.position).sub(enf.group.position).normalize();
+                _tempB.copy(_vForward).applyAxisAngle(_vUp, enf.group.rotation.y);
+                const dot = _tempA.dot(_tempB);
 
                 if (dot > 0.3) {
                   // Frontal shield deflects!
                   sounds.playShieldDeflect();
                   vfx.emitSparks(p.mesh.position, 16, 0x00f0ff, 9);
-                  vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), 'SHIELD DEFLECTED', '#00f0ff', 16);
+                  _textPos.copy(enf.group.position);
+                  _textPos.y += 2.8;
+                  vfx.emitText(_textPos, 'SHIELD DEFLECTED', '#00f0ff', 16);
                   scene.remove(p.mesh);
                   projectiles.splice(i, 1);
                   break;
@@ -948,7 +986,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               const dmg = p.isSniperShot ? 75 : 45;
               enf.hp -= dmg;
               vfx.emitSparks(p.mesh.position, 22, 0x10b981, 8);
-              vfx.emitText(enf.group.position.clone().add(new THREE.Vector3(0, 2.8, 0)), `-${dmg}`, '#10b981', 18, true);
+              _textPos.copy(enf.group.position);
+              _textPos.y += 2.8;
+              vfx.emitText(_textPos, `-${dmg}`, '#10b981', 18, true);
 
               scene.remove(p.mesh);
               projectiles.splice(i, 1);
@@ -974,7 +1014,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
                 const dmg = p.isSniperShot ? 75 : 40;
                 gen.hp -= dmg;
                 vfx.emitSparks(p.mesh.position, 24, 0x00f0ff, 10);
-                vfx.emitText(gen.position.clone().add(new THREE.Vector3(0, 3, 0)), `-${dmg}`, '#00f0ff', 20, true);
+                _textPos.copy(gen.position);
+                _textPos.y += 3;
+                vfx.emitText(_textPos, `-${dmg}`, '#00f0ff', 20, true);
 
                 scene.remove(p.mesh);
                 projectiles.splice(i, 1);
@@ -986,10 +1028,12 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
                   sounds.playExplosion('large');
                   screenShake.addTrauma(0.65);
                   vfx.emitSparks(gen.position, 70, 0x00f0ff, 16, true);
-                  vfx.emitText(gen.position.clone().add(new THREE.Vector3(0, 4, 0)), 'GENERATOR DESTROYED! +1500', '#10b981', 24, true);
+                  _textPos.copy(gen.position);
+                  _textPos.y += 4;
+                  vfx.emitText(_textPos, 'GENERATOR DESTROYED! +1500', '#10b981', 24, true);
 
                   gen.coreMesh.material = new THREE.MeshBasicMaterial({ color: 0x334155 });
-                  gen.coreLight.intensity = 0;
+                  if (gen.coreLight) gen.coreLight.intensity = 0;
 
                   s.objectiveText = `DESTROY GENERATORS: ${s.generatorsDestroyed}/3`;
 
@@ -1010,7 +1054,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
             if (boss.phase === 3 && boss.isShieldActive) {
               sounds.playShieldDeflect();
               vfx.emitSparks(p.mesh.position, 20, 0x00f0ff, 9);
-              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 10, 0)), 'AEGIS SHIELD -15', '#00f0ff', 18);
+              _textPos.copy(boss.group.position);
+              _textPos.y += 10;
+              vfx.emitText(_textPos, 'AEGIS SHIELD -15', '#00f0ff', 18);
               boss.hp -= 15;
             } else {
               sounds.playHit();
@@ -1018,7 +1064,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               const dmg = p.isSniperShot ? 75 : 45;
               boss.hp -= dmg;
               vfx.emitSparks(p.mesh.position, 30, 0x10b981, 10);
-              vfx.emitText(boss.group.position.clone().add(new THREE.Vector3(0, 10, 0)), `-${dmg}`, '#ff4444', 22, true);
+              _textPos.copy(boss.group.position);
+              _textPos.y += 10;
+              vfx.emitText(_textPos, `-${dmg}`, '#ff4444', 22, true);
             }
 
             s.bossHp = Math.max(0, boss.hp);
@@ -1058,7 +1106,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               screenShake.addTrauma(0.25);
               vfx.triggerDamageFlash();
               vfx.emitSparks(activeObj.position, 15, 0xff0033, 6);
-              vfx.emitText(activeObj.position.clone().add(new THREE.Vector3(0, 2, 0)), `-${dmg}`, '#ef4444', 18);
+              _textPos.copy(activeObj.position);
+              _textPos.y += 2;
+              vfx.emitText(_textPos, `-${dmg}`, '#ef4444', 18);
 
               if (s.health <= 0) {
                 s.isRunning = false;
@@ -1088,7 +1138,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               sc.isRescued = true;
               sounds.playPowerup();
               vfx.emitSparks(scPos, 22, 0x10b981, 8, true);
-              vfx.emitText(scPos.clone().add(new THREE.Vector3(0, 3, 0)), 'SCIENTIST RESCUED! FOLLOWING!', '#34d399', 18, true);
+              _textPos.copy(scPos);
+              _textPos.y += 3;
+              vfx.emitText(_textPos, 'SCIENTIST RESCUED! FOLLOWING!', '#34d399', 18, true);
             }
           } else {
             // Escort toward Evacuation Airlock
@@ -1100,7 +1152,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
               s.score += 1500;
               sounds.playEvacuateChime();
               vfx.emitSparks(airlockPos, 40, 0x10b981, 12, true);
-              vfx.emitText(airlockPos.clone().add(new THREE.Vector3(0, 3, 0)), '+1500 EVACUATED!', '#10b981', 22, true);
+              _textPos.copy(airlockPos);
+              _textPos.y += 3;
+              vfx.emitText(_textPos, '+1500 EVACUATED!', '#10b981', 22, true);
               scene.remove(sc.group);
               sc.group.position.set(999, 999, 999);
 
@@ -1216,7 +1270,9 @@ export const OverlinkGame3D: React.FC<OverlinkGame3DProps> = React.memo(({
       window.clearTimeout(initTimer);
       if (bannerTimeout) window.clearTimeout(bannerTimeout);
       window.removeEventListener('resize', handleResize);
-      container.removeEventListener('click', handleContainerClick);
+      container.removeEventListener('click', requestPointerLock);
+      container.removeEventListener('mousedown', requestPointerLock);
+      window.removeEventListener('mousedown', requestPointerLock);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
       tether.dispose(scene);
       boss.dispose();

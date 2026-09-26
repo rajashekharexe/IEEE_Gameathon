@@ -9,7 +9,7 @@ export interface PowerGeneratorEntity {
   maxHp: number;
   isDestroyed: boolean;
   coreMesh: THREE.Mesh;
-  coreLight: THREE.PointLight;
+  coreLight?: THREE.PointLight;
   position: THREE.Vector3;
 }
 
@@ -343,11 +343,6 @@ export class FactoryArenaBuilder {
       });
 
       if (hasFire) {
-        const fireLight = new THREE.PointLight(0xff5500, 1.8, 8);
-        fireLight.position.set(0, 1.8, 1.6);
-        vGroup.add(fireLight);
-        fireLights.push(fireLight);
-
         const flameMat = new THREE.MeshBasicMaterial({ color: 0xff4400, wireframe: true });
         const flame = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.8, 6), flameMat);
         flame.position.set(0, 2.0, 1.6);
@@ -441,9 +436,12 @@ export class FactoryArenaBuilder {
       chimney.position.y = 4.2;
       genGroup.add(chimney);
 
-      const coreLight = new THREE.PointLight(0x00f0ff, 2.0, 10);
-      coreLight.position.y = 2.6;
-      genGroup.add(coreLight);
+      let coreLight: THREE.PointLight | undefined;
+      if (x === 0 && z === -38) {
+        coreLight = new THREE.PointLight(0x00f0ff, 2.5, 16);
+        coreLight.position.y = 2.6;
+        genGroup.add(coreLight);
+      }
 
       scene.add(genGroup);
 
@@ -577,7 +575,6 @@ export class FactoryArenaBuilder {
 
     const sirenBaseGeo = new THREE.CylinderGeometry(0.3, 0.35, 0.3, 12);
     const sirenDomeGeo = new THREE.CylinderGeometry(0.24, 0.28, 0.45, 12);
-    const sirenDomeMat = new THREE.MeshBasicMaterial({ color: 0xff0022 });
 
     sirenPositions.forEach(([x, y, z], idx) => {
       const sGroup = new THREE.Group();
@@ -586,13 +583,18 @@ export class FactoryArenaBuilder {
       const sBase = new THREE.Mesh(sirenBaseGeo, steelMat);
       sGroup.add(sBase);
 
-      const sDome = new THREE.Mesh(sirenDomeGeo, sirenDomeMat);
+      const sDomeMat = new THREE.MeshBasicMaterial({ color: 0xff0022 });
+      const sDome = new THREE.Mesh(sirenDomeGeo, sDomeMat);
       sDome.position.y = 0.3;
       sGroup.add(sDome);
 
-      const light = new THREE.PointLight(0xff0022, 1.8, 10);
-      light.position.y = 0.4;
-      sGroup.add(light);
+      // Lightweight dummy light (intensity 0, not in scene) to satisfy interface without GPU overhead
+      const light = new THREE.PointLight(0xff0022, 0, 0);
+
+      sGroup.traverse((obj) => {
+        obj.matrixAutoUpdate = false;
+        obj.updateMatrix();
+      });
 
       scene.add(sGroup);
       sirens.push({ light, mesh: sDome, baseAngle: idx * (Math.PI / 2) });
@@ -601,25 +603,21 @@ export class FactoryArenaBuilder {
     const updateSirens = (time: number) => {
       sirens.forEach((siren) => {
         const pulse = (Math.sin(time * 6 + siren.baseAngle) + 1) * 0.5;
-        siren.light.intensity = 0.8 + pulse * 2.0;
+        (siren.mesh.material as THREE.MeshBasicMaterial).color.setRGB(0.55 + pulse * 0.45, 0.05, 0.05);
       });
 
       // Drifting smoke animation
       steamClouds.forEach((cloud, idx) => {
         cloud.position.y = 2.2 + Math.sin(time * 0.8 + idx) * 0.4;
-        cloud.scale.setScalar(1.0 + Math.sin(time * 0.5 + idx) * 0.3);
-      });
-
-      // Flickering fire lights
-      fireLights.forEach((fl, idx) => {
-        fl.intensity = 2.5 + Math.sin(time * 16 + idx * 3) * 1.5;
       });
 
       // Rotate generator energy coils
       generators.forEach((gen, idx) => {
         if (!gen.isDestroyed) {
           gen.coreMesh.rotation.y = time * 2.5 + idx;
-          gen.coreLight.intensity = 3.5 + Math.sin(time * 8 + idx) * 1.5;
+          if (gen.coreLight) {
+            gen.coreLight.intensity = 3.0 + Math.sin(time * 8 + idx) * 1.5;
+          }
         }
       });
     };

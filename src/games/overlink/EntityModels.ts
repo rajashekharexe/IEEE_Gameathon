@@ -23,6 +23,7 @@ export interface TitanMechEntity {
   leftArmPivot: THREE.Group;
   rightArmPivot: THREE.Group;
   chestCore: THREE.Mesh;
+  aegisShield: THREE.Mesh;
   setAllied: (isAllied: boolean) => void;
   animateWalk: (time: number, isMoving: boolean) => void;
 }
@@ -330,6 +331,19 @@ export class EntityModelFactory {
       }
     };
 
+    const shieldGeo = new THREE.CylinderGeometry(2.4, 2.4, 0.1, 6);
+    shieldGeo.rotateX(Math.PI / 2);
+    const shieldMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.35,
+      wireframe: true,
+    });
+    const aegisShield = new THREE.Mesh(shieldGeo, shieldMat);
+    aegisShield.position.set(0, 3.2, 1.8);
+    aegisShield.visible = false;
+    group.add(aegisShield);
+
     return {
       group,
       visorMesh,
@@ -339,6 +353,7 @@ export class EntityModelFactory {
       leftArmPivot,
       rightArmPivot,
       chestCore,
+      aegisShield,
       setAllied,
       animateWalk,
     };
@@ -383,13 +398,75 @@ export class EntityModelFactory {
     group.add(waveArm);
 
     const animateIdle = (time: number) => {
-      // Trembling / waving arm animation
       waveArm.rotation.z = Math.sin(time * 8) * 0.4 + 0.3;
       body.position.y = 0.55 + Math.sin(time * 4) * 0.03;
     };
 
     return { group, isRescued: false, animateIdle };
   }
+
+  // 4. SCOUT BOT (AGILE RED SWARM AUTOMATON)
+  public createScoutBot() {
+    const group = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.8 });
+    const redEyeMat = new THREE.MeshBasicMaterial({ color: 0xff1133 });
+
+    // Spherical Core
+    const coreGeo = new THREE.SphereGeometry(0.4, 12, 12);
+    const core = new THREE.Mesh(coreGeo, bodyMat);
+    core.position.y = 0.8;
+    core.castShadow = true;
+    group.add(core);
+
+    // Glowing Red Eye
+    const eyeGeo = new THREE.SphereGeometry(0.15, 8, 8);
+    const eye = new THREE.Mesh(eyeGeo, redEyeMat);
+    eye.position.set(0, 0.85, 0.35);
+    group.add(eye);
+
+    // 3 Spindly Legs
+    const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.8);
+    for (let i = 0; i < 3; i++) {
+      const angle = (i * Math.PI * 2) / 3;
+      const leg = new THREE.Mesh(legGeo, bodyMat);
+      leg.position.set(Math.cos(angle) * 0.3, 0.4, Math.sin(angle) * 0.3);
+      leg.rotation.z = Math.cos(angle) * 0.3;
+      leg.rotation.x = Math.sin(angle) * 0.3;
+      group.add(leg);
+    }
+
+    const animateBob = (time: number) => {
+      core.position.y = 0.8 + Math.sin(time * 8) * 0.08;
+    };
+
+    return { group, eye, hp: 30, maxHp: 30, speed: 6.5, animateBob };
+  }
+
+  // 5. EVACUATION AIRLOCK / EXTRACTION BUNKER PAD
+  public createEvacuationAirlock(): THREE.Group {
+    const group = new THREE.Group();
+
+    // Pad Ring
+    const padGeo = new THREE.RingGeometry(2.5, 3.2, 32);
+    padGeo.rotateX(-Math.PI / 2);
+    const padMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.8,
+    });
+    const pad = new THREE.Mesh(padGeo, padMat);
+    pad.position.y = 0.02;
+    group.add(pad);
+
+    // Holographic Beacon Light
+    const beaconLight = new THREE.PointLight(0x10b981, 2.5, 12);
+    beaconLight.position.set(0, 2.5, 0);
+    group.add(beaconLight);
+
+    return group;
+  }
 }
 
 export const entityFactory = new EntityModelFactory();
+

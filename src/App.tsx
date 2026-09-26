@@ -30,6 +30,8 @@ export const App: React.FC = () => {
     totalScientists: 2,
     titanHealth: 100,
     isTitanAllied: false,
+    activeChassis: 'UNIT7',
+    isShieldActive: false,
   });
 
   // Global key bindings

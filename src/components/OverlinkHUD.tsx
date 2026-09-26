@@ -1,6 +1,6 @@
-// Exact Recreation of the Concept Art HUD for Circuit Breaker: Overlink
+// Exact Recreation of the Concept Art HUD with Active Chassis & Shield Indicators
 import React from 'react';
-import { Crosshair, Zap, ShieldAlert, Radio } from 'lucide-react';
+import { Crosshair, Zap, ShieldAlert, Radio, Shield, Cpu } from 'lucide-react';
 import type { OverlinkStats } from '../games/overlink/OverlinkGame3D';
 
 interface OverlinkHUDProps {
@@ -9,7 +9,6 @@ interface OverlinkHUDProps {
 }
 
 export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
-  // Circular gauge calculations for Thermal Stability
   const radius = 38;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (stats.thermalStability / 100) * circumference;
@@ -18,22 +17,29 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
     <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between z-20 text-white font-sans select-none">
       {/* 1. TOP HEADER BAR */}
       <div className="flex justify-between items-start">
-        {/* Top Left: Logo & Branding */}
+        {/* Top Left: Logo & Active Chassis */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-400 flex items-center justify-center shadow-lg box-glow-cyan">
             <Crosshair className="w-6 h-6 text-cyan-400" />
           </div>
           <div>
-            <div className="text-xs tracking-widest text-cyan-400 font-bold uppercase">
+            <div className="text-xs tracking-widest text-cyan-400 font-bold uppercase font-mono">
               CIRCUIT BREAKER:
             </div>
             <div className="text-2xl font-black tracking-wider text-white neon-glow-cyan font-mono">
               OVERLINK
             </div>
+            <div className="inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700 text-[10px] font-mono">
+              <Cpu className="w-3 h-3 text-cyan-400" />
+              <span className="text-slate-400">CHASSIS:</span>
+              <span className={stats.activeChassis === 'TITAN' ? 'text-amber-400 font-bold' : 'text-cyan-400 font-bold'}>
+                {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN (PILOTING)' : 'UNIT-7 (CYBER DROID)'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Top Center: Boss / Target Status (MK-IV TITAN) */}
+        {/* Top Center: Boss / Target Status */}
         <div className="flex flex-col items-center min-w-[340px]">
           <div className="flex justify-between w-full text-xs font-mono font-bold px-1 mb-1">
             <span className="text-slate-300 flex items-center gap-1.5">
@@ -41,8 +47,10 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
               TARGET: MK-IV TITAN
             </span>
             <span className={stats.isTitanAllied ? 'text-emerald-400' : 'text-cyan-400'}>
-              {stats.isTitanAllied
-                ? 'OVERRIDE COMPLETE // ALLIED'
+              {stats.activeChassis === 'TITAN'
+                ? 'EMBODIED // PILOTING MECH'
+                : stats.isTitanAllied
+                ? 'OVERRIDE COMPLETE // PRESS [E] TO EMBODY'
                 : stats.isTetherActive
                 ? `HACK IN PROGRESS: ${stats.hackProgress}%`
                 : 'HOLD RIGHT-CLICK TO HACK'}
@@ -70,7 +78,7 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
             WAVE {stats.wave}/3: RESCUE SCIENTISTS
           </div>
           <div className="text-sm font-black text-amber-300 font-mono mt-0.5">
-            [IN PROGRESS: {stats.rescuedScientists}/{stats.totalScientists}]
+            [EVACUATED: {stats.rescuedScientists}/{stats.totalScientists}]
           </div>
           <div className="text-[11px] text-slate-400 mt-1 font-mono">
             SCORE: <span className="text-cyan-300 font-bold">{stats.score.toLocaleString()}</span>
@@ -78,26 +86,33 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
         </div>
       </div>
 
-      {/* God Mode Warning if enabled */}
-      {godMode && (
-        <div className="self-center inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500/20 border border-amber-500/60 rounded-xl text-amber-300 text-xs font-mono font-bold animate-pulse shadow-lg backdrop-blur-md">
-          <ShieldAlert className="w-4 h-4" />
-          <span>JUDGE DEMO MODE ACTIVE (INVULNERABLE)</span>
-        </div>
-      )}
+      {/* Center Alerts */}
+      <div className="self-center flex flex-col items-center gap-2">
+        {godMode && (
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500/20 border border-amber-500/60 rounded-xl text-amber-300 text-xs font-mono font-bold animate-pulse shadow-lg backdrop-blur-md">
+            <ShieldAlert className="w-4 h-4" />
+            <span>JUDGE DEMO MODE ACTIVE (INVULNERABLE)</span>
+          </div>
+        )}
+        {stats.isTitanAllied && stats.activeChassis === 'UNIT7' && (
+          <div className="px-4 py-1 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-mono font-bold animate-bounce shadow-lg">
+            ⚡ TITAN OVERRIDDEN! GET CLOSE & PRESS [E] TO EMBODY!
+          </div>
+        )}
+      </div>
 
       {/* 2. BOTTOM CONTROL & STATS DOCK */}
       <div className="flex justify-between items-end">
-        {/* Bottom Left: Unit-7 Health, Energy & Abilities */}
+        {/* Bottom Left: Health, Energy & Abilities */}
         <div className="flex flex-col gap-2 min-w-[260px]">
           <div className="text-lg font-black font-mono text-cyan-400 tracking-wider">
-            Unit-7
+            {stats.activeChassis === 'TITAN' ? 'MK-IV TITAN' : 'Unit-7'}
           </div>
 
           {/* Health Bar */}
           <div className="bg-slate-900/85 backdrop-blur-md border border-cyan-500/30 p-2 rounded-xl">
             <div className="flex justify-between text-[11px] font-mono text-slate-300 mb-1">
-              <span>HEALTH</span>
+              <span>{stats.activeChassis === 'TITAN' ? 'ARMOR INTEGRITY' : 'HEALTH'}</span>
               <span className="font-bold">{stats.health}/100</span>
             </div>
             <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -125,16 +140,31 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
           {/* Abilities Panel */}
           <div className="bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl font-mono text-xs text-slate-300 flex flex-col gap-1">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-              ABILITIES:
+              ACTIVE LOADOUT:
             </span>
-            <div className={`flex items-center gap-1.5 ${stats.isTetherActive ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
-              <Zap className={`w-3.5 h-3.5 ${stats.isTetherActive ? 'text-cyan-400 animate-pulse' : 'text-slate-500'}`} />
-              <span>NEURAL TETHER {stats.isTetherActive ? '(ACTIVE)' : '(RMB / E)'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Crosshair className="w-3.5 h-3.5 text-slate-500" />
-              <span>EMP BLAST (LMB / SPACE)</span>
-            </div>
+            {stats.activeChassis === 'TITAN' ? (
+              <>
+                <div className={`flex items-center gap-1.5 ${stats.isShieldActive ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
+                  <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>AEGIS RIOT SHIELD {stats.isShieldActive ? '(ACTIVE)' : '(HOLD SHIFT)'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-amber-300">
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>HYDRAULIC SLAM CANNON (LMB)</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={`flex items-center gap-1.5 ${stats.isTetherActive ? 'text-cyan-300 font-bold' : 'text-slate-400'}`}>
+                  <Zap className={`w-3.5 h-3.5 ${stats.isTetherActive ? 'text-cyan-400 animate-pulse' : 'text-slate-500'}`} />
+                  <span>NEURAL TETHER {stats.isTetherActive ? '(ACTIVE)' : '(RMB / E)'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <Crosshair className="w-3.5 h-3.5 text-slate-500" />
+                  <span>EMP BLAST (LMB / SPACE)</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -143,22 +173,18 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
           {/* Tactical Radar Simulation */}
           <div className="flex flex-col items-center">
             <span className="text-[9px] font-mono tracking-widest text-slate-400 uppercase mb-1">
-              TACTICAL MAP
+              TACTICAL RADAR
             </span>
             <div className="w-16 h-16 rounded-full border border-cyan-500/40 bg-slate-950/80 relative flex items-center justify-center overflow-hidden">
-              {/* Radar sweep line */}
               <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-transparent rounded-full animate-spin" />
-              {/* Center blip: Player (Unit-7) */}
               <div className="w-2 h-2 rounded-full bg-cyan-400 absolute" />
-              {/* Target blip: Titan */}
               <div
                 className={`w-2.5 h-2.5 rounded-full absolute -top-3 ${
                   stats.isTitanAllied ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'
                 }`}
               />
-              {/* Scientists blips */}
               <div className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute right-2 bottom-3" />
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute left-2 top-4" />
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute left-2 bottom-2" />
             </div>
           </div>
 
@@ -181,7 +207,6 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
 
           <div className="relative w-24 h-24 flex items-center justify-center">
             <svg className="w-full h-full -rotate-90">
-              {/* Background circle */}
               <circle
                 cx="48"
                 cy="48"
@@ -190,12 +215,17 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
                 strokeWidth="6"
                 fill="none"
               />
-              {/* Dynamic Progress circle */}
               <circle
                 cx="48"
                 cy="48"
                 r={radius}
-                className="stroke-cyan-400 transition-all duration-300"
+                className={`transition-all duration-300 ${
+                  stats.thermalStability > 40
+                    ? 'stroke-cyan-400'
+                    : stats.thermalStability > 20
+                    ? 'stroke-amber-400'
+                    : 'stroke-rose-500 animate-pulse'
+                }`}
                 strokeWidth="6"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
@@ -204,13 +234,14 @@ export const OverlinkHUD: React.FC<OverlinkHUDProps> = ({ stats, godMode }) => {
               />
             </svg>
 
-            {/* Center Percentage Display */}
             <div className="absolute flex flex-col items-center">
               <span className="text-2xl font-black text-cyan-300 font-mono tracking-tight neon-glow-cyan">
                 {stats.thermalStability}%
               </span>
-              <span className="text-[9px] font-mono text-emerald-400 tracking-wider">
-                • STABLE
+              <span className={`text-[9px] font-mono tracking-wider ${
+                stats.thermalStability > 40 ? 'text-emerald-400' : 'text-rose-400 font-bold'
+              }`}>
+                {stats.thermalStability > 40 ? '• STABLE' : '• OVERHEAT'}
               </span>
             </div>
           </div>

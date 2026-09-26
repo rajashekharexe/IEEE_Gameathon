@@ -424,10 +424,13 @@ class HumanHeroFactory {
     aimLaser.position.set(0, 0.02, 0.98);
     gunContainer.add(aimLaser);
 
-    // Position gun firmly shouldered against Manuel's right chest & hands
-    const baseGunX = -0.10;
-    const baseGunY = 1.10;
-    const baseGunZ = 0.18;
+    // Scale main character by 18% (+15-20px screen height increase as requested)
+    masterGroup.scale.setScalar(1.18);
+
+    // Position gun firmly in front of Manuel's chest & hands (never penetrating back/shirt)
+    const baseGunX = -0.14;
+    const baseGunY = 1.22;
+    const baseGunZ = 0.42; // Forward in front of chest so stock sits on shoulder without penetrating
     gunContainer.position.set(baseGunX, baseGunY, baseGunZ);
     masterGroup.add(gunContainer);
 
@@ -440,19 +443,27 @@ class HumanHeroFactory {
     let isDancing = false;
 
     // Tactical Two-Handed Combat Arm Quaternions (Grip & Support Stance)
-    const qCombatUpperR = new THREE.Quaternion(-0.24369, 0.56081, -0.11195, 0.78331)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.55, 0.22, 0.05, 'YXZ')));
-    const qCombatLowerR = new THREE.Quaternion(0.13198, -0.04066, 0.00505, 0.99041)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.45, 0.35, -0.15, 'YXZ')));
-    const qCombatHandR = new THREE.Quaternion(-0.58297, -0.06395, -0.17320, 0.79124)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0.1, 0.1, 'YXZ')));
+    // Left Arm: reaches forward across chest and flexes upward to cradle the rifle barrel
+    const qCombatUpperL = new THREE.Quaternion()
+      .setFromEuler(new THREE.Euler(0.20, 2.95, 0.10, 'YXZ'))
+      .multiply(new THREE.Quaternion(0.34041, 0.44008, -0.40100, 0.72777));
+    const qCombatLowerL = new THREE.Quaternion()
+      .setFromEuler(new THREE.Euler(-0.45, 0.0, 0.60, 'YXZ'))
+      .multiply(new THREE.Quaternion(-0.39233, -0.00064, -0.01512, 0.91970));
+    const qCombatHandL = new THREE.Quaternion()
+      .setFromEuler(new THREE.Euler(-0.25, 0.35, 0.10, 'YXZ'))
+      .multiply(new THREE.Quaternion(-0.69270, 0.03114, -0.06152, 0.71792));
 
-    const qCombatUpperL = new THREE.Quaternion(0.34041, 0.44008, -0.40100, 0.72777)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.1, 2.85, 0.45, 'YXZ')));
-    const qCombatLowerL = new THREE.Quaternion(-0.39233, -0.00064, -0.01512, 0.91970)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.2, 0.1, 0.85, 'YXZ')));
-    const qCombatHandL = new THREE.Quaternion(-0.69270, 0.03114, -0.06152, 0.71792)
-      .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0.2, 0.1, 'YXZ')));
+    // Right Arm: pitches down into ready firing stance with hand firmly on the pistol grip
+    const qCombatUpperR = new THREE.Quaternion()
+      .setFromEuler(new THREE.Euler(0.38, -0.15, 0.0, 'YXZ'))
+      .multiply(new THREE.Quaternion(-0.24369, 0.56081, -0.11195, 0.78331));
+    const qCombatLowerR = new THREE.Quaternion()
+      .setFromEuler(new THREE.Euler(-0.25, 0.0, -0.35, 'YXZ'))
+      .multiply(new THREE.Quaternion(0.13198, -0.04066, 0.00505, 0.99041));
+    const qCombatHandR = new THREE.Quaternion()
+      .setFromEuler(new THREE.Euler(0.15, -0.10, 0.10, 'YXZ'))
+      .multiply(new THREE.Quaternion(-0.58297, -0.06395, -0.17320, 0.79124));
 
     // Lock arms into tactical two-handed rifle firing grip
     const lockCombatArms = () => {
@@ -590,9 +601,13 @@ class HumanHeroFactory {
         }
         aimLaser.visible = true;
 
-        // Laser vector in local coordinates
+        // Project laser sight straight forward horizontally along rifle barrel
         const localTarget = gunContainer.worldToLocal(targetPoint.clone());
-        const laserPoints = [new THREE.Vector3(0, 0.02, 0.98), localTarget];
+        const targetDist = Math.max(10, Math.min(35, localTarget.length()));
+        const laserPoints = [
+          new THREE.Vector3(0, 0.02, 0.98),
+          new THREE.Vector3(0, 0.02, 0.98 + targetDist),
+        ];
         aimLaser.geometry.setFromPoints(laserPoints);
       },
     };

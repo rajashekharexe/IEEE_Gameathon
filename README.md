@@ -3,7 +3,7 @@
 <div align="center">
 
 ### 🥈 **2nd Prize Winner — IEEE Gameathon 2026** 🥈
-**Organized by:** BLDEACET, Vijayapura (STB 30721) & IEEE Bangalore Section  
+**Organized by:** BLDEA's V.P. Dr. P.G. Halakatti College of Engineering and Technology (BLDEACET), Vijayapura (IEEE Student Branch STB 30721)  
 **Theme:** *ROBOT REVOLT* — *"The robots were created to help humans... but something has gone wrong. Your mission: Turn this conflict into a game."*
 
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
@@ -130,7 +130,7 @@ Game-Feel & Audio:
 ## 🏆 IEEE Gameathon 2026 Submission Credentials
 
 - **Award:** 🥈 **2nd Prize Winner**
-- **Organizing Body:** BLDEACET IEEE Student Branch (STB 30721) in collaboration with IEEE Bangalore Section
+- **Organizing Body:** BLDEA's V.P. Dr. P.G. Halakatti College of Engineering and Technology (BLDEACET), Vijayapura (IEEE Student Branch STB 30721)
 - **Theme Alignment:** Full mechanical interpretation of *Robot Revolt* — human researchers rescued, machine workforce subverted via neural bus overriding, and rogue central intelligence neutralized.
 - **Rule Compliance & Asset Purity:**
   - **100% Procedural 3D Assets:** All human character models, robot mechs, weapons, skyscrapers, vehicles, and the Core-X boss are built entirely out of mathematical code geometries. Zero downloaded 3D model files (GLTF/FBX/OBJ).
